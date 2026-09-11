@@ -1,0 +1,94 @@
+.statBar {
+  width: 100%;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 10px 0;
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  max-width: 1100px;
+  margin-inline: auto;
+  padding-inline: var(--space-lg);
+}
+
+.statGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.valueLarge {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Progress Bar */
+.progressTrack {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 140px;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--grad-gold);
+  border-radius: 999px;
+  transition: width 0.6s var(--ease-smooth);
+  box-shadow: 0 0 8px rgba(244, 185, 66, 0.5);
+}
+
+.decayInfo {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.tierBadge {
+  font-size: 0.68rem !important;
+}
+
+.divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .container {
+    gap: var(--space-md);
+  }
+  .divider { display: none; }
+  .statGroup { min-width: 80px; }
+}

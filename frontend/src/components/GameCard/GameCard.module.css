@@ -1,0 +1,163 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--grad-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glow-card);
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform var(--dur-normal) var(--ease-smooth),
+              border-color var(--dur-normal),
+              box-shadow var(--dur-normal);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(244, 185, 66, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-normal);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-accent);
+  box-shadow: var(--glow-card), var(--glow-gold);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+/* Status variants */
+.done {
+  border-color: rgba(74, 124, 89, 0.35);
+}
+
+.done:hover {
+  border-color: rgba(74, 124, 89, 0.6);
+  box-shadow: var(--glow-card), var(--glow-green);
+}
+
+.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Status badges */
+.completedBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(74, 124, 89, 0.25);
+  border: 1px solid rgba(74, 124, 89, 0.5);
+  border-radius: var(--radius-full);
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--clr-meadow-light);
+  letter-spacing: 0.05em;
+}
+
+.lockedOverlay {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 1.1rem;
+  opacity: 0.6;
+}
+
+/* Icon */
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: rgba(244, 185, 66, 0.08);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  transition: background var(--dur-normal), transform var(--dur-normal);
+}
+
+.card:hover .iconWrap {
+  background: rgba(244, 185, 66, 0.14);
+  transform: scale(1.05);
+}
+
+.icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+/* Info */
+.info {
+  flex: 1;
+}
+
+.name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Rewards */
+.rewards {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reward {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.badgeReward {
+  background: rgba(244, 185, 66, 0.08);
+  border-color: rgba(244, 185, 66, 0.2);
+  color: var(--clr-gold);
+}
+
+/* CTA */
+.cta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--clr-gold);
+  letter-spacing: 0.02em;
+  transition: letter-spacing var(--dur-fast);
+}
+
+.card:hover .cta {
+  letter-spacing: 0.05em;
+}
+
+.ctaDone {
+  font-size: 0.8rem;
+  color: var(--clr-meadow-light);
+  font-weight: 500;
+}

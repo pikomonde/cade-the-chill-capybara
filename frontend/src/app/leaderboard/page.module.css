@@ -1,0 +1,278 @@
+.main {
+  min-height: 100dvh;
+  padding: var(--space-xl) 0 var(--space-3xl);
+}
+
+.pageHeader {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.pageTitle {
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.pageSub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  max-width: 440px;
+  margin-inline: auto;
+  line-height: 1.7;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+  margin-bottom: var(--space-xl);
+}
+
+.tab {
+  padding: 10px 24px;
+  border-radius: var(--radius-full);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-card);
+  background: transparent;
+  color: var(--text-muted);
+  transition: all var(--dur-fast);
+  font-family: var(--font-body);
+}
+
+.tab:hover {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+.tabActive {
+  background: rgba(244, 185, 66, 0.1);
+  border-color: rgba(244, 185, 66, 0.4);
+  color: var(--clr-gold);
+}
+
+/* Podium */
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xl);
+}
+
+.podiumCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 200px;
+}
+
+.podiumMedal {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.podiumAvatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.avatarFirst {
+  width: 64px;
+  height: 64px;
+  border-color: var(--clr-gold);
+  background: rgba(244, 185, 66, 0.08);
+  color: var(--clr-gold);
+  font-size: 1.1rem;
+  box-shadow: var(--glow-gold);
+}
+
+.podiumName {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.podiumPoints {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.podiumBase {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.first .podiumBase {
+  background: rgba(244, 185, 66, 0.08);
+  border-color: rgba(244, 185, 66, 0.25);
+}
+
+.second .podiumBase {
+  background: rgba(192, 192, 192, 0.05);
+  border-color: rgba(192, 192, 192, 0.2);
+}
+
+.third .podiumBase {
+  background: rgba(180, 120, 80, 0.05);
+  border-color: rgba(180, 120, 80, 0.2);
+}
+
+/* Table */
+.tableWrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--space-lg);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255,255,255,0.02);
+  white-space: nowrap;
+}
+
+.tableRow {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--dur-fast);
+}
+
+.tableRow:last-child { border-bottom: none; }
+.tableRow:hover { background: rgba(255,255,255,0.025); }
+
+.table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+.rankCell {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.playerCell { min-width: 180px; }
+
+.playerInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.playerName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.playerAddr {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: 'Space Grotesk', monospace;
+}
+
+.tierMuted {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.pointsCell {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.coinCell {
+  font-size: 0.88rem;
+  color: var(--clr-gold);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.streakCell {
+  font-size: 0.85rem;
+  color: var(--clr-capy-warm);
+  font-weight: 600;
+}
+
+/* Epoch info */
+.epochInfo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.epochIcon { font-size: 1.2rem; flex-shrink: 0; }
+
+.epochText {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.epochText strong { color: var(--text-secondary); }
+
+@media (max-width: 768px) {
+  .podium { gap: var(--space-sm); }
+  .table th:nth-child(5),
+  .table td:nth-child(5),
+  .table th:nth-child(6),
+  .table td:nth-child(6) { display: none; }
+}
