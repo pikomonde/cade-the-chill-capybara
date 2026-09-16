@@ -43,7 +43,9 @@ contract WagerGame {
         require(guess < 100, "Guess number should be between 0 - 99!");
 
         // Get 0.1 USDC from player's wallet to this smart contract
-        // require(IERC20(usdcToken).transferFrom(msg.sender, address(this), BET_AMOUNT), "Failed to transfer USDC");
+        if (usdcToken != address(0)) {
+            require(IERC20(usdcToken).transferFrom(msg.sender, address(this), BET_AMOUNT), "Failed to transfer USDC");
+        }
 
         currentBets.push(PlayerBet({
             player: msg.sender,
@@ -82,7 +84,9 @@ contract WagerGame {
         uint256 winnerPrize = totalPrize / 2;
         
         // Another 50% on this contract (fee for paymaster)
-        // require(IERC20(usdcToken).transfer(winner, winnerPrize), "Failed to transfer prize");
+        if (usdcToken != address(0)) {
+            require(IERC20(usdcToken).transfer(winner, winnerPrize), "Failed to transfer prize");
+        }
 
         emit RoundResolved(winner, winningNumber, winnerPrize); // Notify the winner
 
