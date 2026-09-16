@@ -35,7 +35,11 @@ contract WagerGame {
 
     // 1. FUNCTION to place bet
     function placeBet(uint8 guess) external {
-        require(block.timestamp < roundEndTime, "Round ended, wait for the next round!");
+        // Auto-resolve previous round if time has passed
+        if (block.timestamp >= roundEndTime) {
+            _resolveRound();
+        }
+
         require(guess < 100, "Guess number should be between 0 - 99!");
 
         // Get 0.1 USDC from player's wallet to this smart contract
@@ -51,12 +55,10 @@ contract WagerGame {
         emit BetPlaced(msg.sender, guess); // Send notification to frontend
     }
 
-    // 2. FUNCTION to calculate winner (Anyone can call this)
-    function resolveRound() external {
-        require(block.timestamp >= roundEndTime, "Please be patient, The 5 minutes game still not done!");
-        // require(currentBets.length > 0, "No player in this round");
-
+    // 2. FUNCTION to calculate winner (Internal auto-resolve)
+    function _resolveRound() internal {
         if (currentBets.length == 0) {
+            // No players in the last round, just reset timer
             roundEndTime = block.timestamp + 5 minutes;
             return;
         }

@@ -4,7 +4,7 @@ import { createPublicClient, createWalletClient, custom, http, parseAbiItem } fr
 import { defineChain } from 'viem';
 import wagerArtifact from './WagerGameABI.json';
 
-const CONTRACT_ADDRESS = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+const CONTRACT_ADDRESS = '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
 const CONTRACT_ABI = wagerArtifact.abi;
 
 const anvilChain = defineChain({
@@ -171,34 +171,7 @@ function App() {
   };
 
   // Transaction 2: Resolve Round
-  const handleResolveRound = async () => {
-    const currentWallet = wallets[0];
-    if (!currentWallet) return;
-
-    try {
-      setTxPending(true);
-      const provider = await currentWallet.getEthereumProvider();
-      const walletClient = createWalletClient({
-        account: currentWallet.address,
-        chain: anvilChain,
-        transport: custom(provider),
-      });
-
-      const hash = await walletClient.writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
-        functionName: 'resolveRound',
-      });
-
-      alert(`Successfully Resolved Round! New round started! Tx: ${hash.slice(0, 10)}...`);
-      await fetchContractData();
-    } catch (err) {
-      console.error("Failed to resolve round:", err);
-      alert(`Failed: ${err.shortMessage || err.message}`);
-    } finally {
-      setTxPending(false);
-    }
-  };
+  // REMOVED: Auto-resolve is now handled within handlePlaceBet in the smart contract
 
   if (!ready) {
     return (
@@ -309,13 +282,13 @@ function App() {
                     max="99"
                     value={guessInput}
                     onChange={(e) => setGuessInput(e.target.value)}
-                    disabled={isRoundEnded || txPending}
+                    disabled={txPending}
                     placeholder="e.g. 42"
                     className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg font-bold text-white focus:outline-none focus:border-indigo-500 transition disabled:opacity-50"
                   />
                   <button
                     onClick={handlePlaceBet}
-                    disabled={isRoundEnded || !guessInput || txPending || !wallets[0]}
+                    disabled={!guessInput || txPending || !wallets[0]}
                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {txPending ? 'Sending...' : "I'm feeling lucky"}
@@ -325,18 +298,11 @@ function App() {
             </div>
 
             {isRoundEnded && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between">
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-center text-center">
                 <div>
-                  <p className="text-sm font-semibold text-amber-300">Round Time is Up!</p>
-                  <p className="text-xs text-amber-200/70">Click to resolve the winner & start anew</p>
+                  <p className="text-sm font-semibold text-emerald-400 mb-1">Time's Up for this Round! ⏳</p>
+                  <p className="text-xs text-emerald-200/70">The next person to play will automatically resolve the winner and start a fresh pot!</p>
                 </div>
-                <button
-                  onClick={handleResolveRound}
-                  disabled={txPending || !wallets[0]}
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl transition text-xs cursor-pointer shadow-lg shadow-amber-500/20 disabled:opacity-50"
-                >
-                  {txPending ? 'Processing...' : 'Resolve Round'}
-                </button>
               </div>
             )}
 
