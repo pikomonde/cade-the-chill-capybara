@@ -39,7 +39,7 @@ contract WagerGame {
         require(guess < 100, "Guess number should be between 0 - 99!");
 
         // Get 0.1 USDC from player's wallet to this smart contract
-        require(IERC20(usdcToken).transferFrom(msg.sender, address(this), BET_AMOUNT), "Failed to transfer USDC");
+        // require(IERC20(usdcToken).transferFrom(msg.sender, address(this), BET_AMOUNT), "Failed to transfer USDC");
 
         currentBets.push(PlayerBet({
             player: msg.sender,
@@ -54,7 +54,12 @@ contract WagerGame {
     // 2. FUNCTION to calculate winner (Anyone can call this)
     function resolveRound() external {
         require(block.timestamp >= roundEndTime, "Please be patient, The 5 minutes game still not done!");
-        require(currentBets.length > 0, "No player in this round");
+        // require(currentBets.length > 0, "No player in this round");
+
+        if (currentBets.length == 0) {
+            roundEndTime = block.timestamp + 5 minutes;
+            return;
+        }
 
         uint8 winningNumber = uint8(totalGuesses % 100); 
         
@@ -75,7 +80,7 @@ contract WagerGame {
         uint256 winnerPrize = totalPrize / 2;
         
         // Another 50% on this contract (fee for paymaster)
-        require(IERC20(usdcToken).transfer(winner, winnerPrize), "Failed to transfer prize");
+        // require(IERC20(usdcToken).transfer(winner, winnerPrize), "Failed to transfer prize");
 
         emit RoundResolved(winner, winningNumber, winnerPrize); // Notify the winner
 
@@ -83,6 +88,11 @@ contract WagerGame {
         delete currentBets;
         totalGuesses = 0;
         roundEndTime = block.timestamp + 5 minutes;
+    }
+
+    // Helper function untuk read number of bets in this round
+    function getBetsCount() external view returns (uint256) {
+        return currentBets.length;
     }
 
     // Helper function

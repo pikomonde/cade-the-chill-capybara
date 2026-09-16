@@ -35,6 +35,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       config={{
         loginMethods: ['email', 'wallet'],
         // loginMethods: ['email', 'wallet', 'google', 'telegram'],
+        embeddedWallets: {
+          createOnLogin: 'users-without-wallets',
+        },
         appearance: {
           theme: 'dark',
           accentColor: '#676FFF',
