@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import { usePrivy, useWallets, useCreateWallet } from '@privy-io/react-auth';
 import { createPublicClient, createWalletClient, custom, http, parseAbiItem } from 'viem';
 import { defineChain } from 'viem';
@@ -132,13 +133,13 @@ function App() {
   // Transaction 1: Place Bet / Enter Game
   const handlePlaceBet = async () => {
     if (!guessInput || guessInput < 0 || guessInput > 99) {
-      alert("Please enter a number between 0 and 99!");
+      toast.error("Please enter a number between 0 and 99!");
       return;
     }
 
     const currentWallet = wallets[0];
     if (!currentWallet) {
-      alert("Wallet not connected!");
+      toast.error("Wallet not connected!");
       return;
     }
 
@@ -159,12 +160,12 @@ function App() {
       });
 
       console.log("Tx Hash:", hash);
-      alert(`Successfully submitted guess ${guessInput}! Tx Hash: ${hash.slice(0, 10)}...`);
+      toast.success(`Successfully submitted guess ${guessInput}! Tx Hash: ${hash.slice(0, 10)}...`);
       setGuessInput('');
       await fetchContractData();
     } catch (err) {
       console.error("Failed to place bet:", err);
-      alert(`Failed: ${err.shortMessage || err.message}`);
+      toast.error(`Failed: ${err.shortMessage || err.message}`);
     } finally {
       setTxPending(false);
     }
@@ -183,6 +184,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-start p-4 md:p-6 font-sans">
+      <Toaster position="top-center" toastOptions={{
+        style: {
+          background: '#1e293b',
+          color: '#fff',
+          border: '1px solid #334155',
+        },
+      }} />
       <header className="w-full max-w-md flex items-center justify-between py-3 border-b border-slate-800 mb-6">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🦫</span>

@@ -13,6 +13,7 @@
     "@privy-io/react-auth": "^3.42.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-hot-toast": "^2.6.0",
     "viem": "^2.56.0"
   },
   "devDependencies": {
