@@ -67,28 +67,38 @@ contract WagerGame {
 
         uint8 winningNumber = uint8(totalGuesses % 100); 
         
-        // Find whose guess is the closest
-        address winner = currentBets[0].player;
+        // 1. Find the smallest diff
         uint8 smallestDiff = _getDifference(currentBets[0].guess, winningNumber);
-
         for (uint256 i = 1; i < currentBets.length; i++) {
             uint8 diff = _getDifference(currentBets[i].guess, winningNumber);
             if (diff < smallestDiff) {
                 smallestDiff = diff;
-                winner = currentBets[i].player;
             }
         }
 
-        // Share prize (50% ke Winner)
-        uint256 totalPrize = currentBets.length * BET_AMOUNT;
-        uint256 winnerPrize = totalPrize / 2;
-        
-        // Another 50% on this contract (fee for paymaster)
-        if (usdcToken != address(0)) {
-            require(IERC20(usdcToken).transfer(winner, winnerPrize), "Failed to transfer prize");
+        // 2. Count how many players share this smallest diff
+        uint256 winnerCount = 0;
+        for (uint256 i = 0; i < currentBets.length; i++) {
+            if (_getDifference(currentBets[i].guess, winningNumber) == smallestDiff) {
+                winnerCount++;
+            }
         }
 
-        emit RoundResolved(winner, winningNumber, winnerPrize); // Notify the winner
+        // 3. Share prize (50% ke Winners)
+        uint256 totalPrize = currentBets.length * BET_AMOUNT;
+        uint256 totalWinnerPrize = totalPrize / 2;
+        uint256 prizePerWinner = totalWinnerPrize / winnerCount;
+
+        // 4. Distribute to all tied winners
+        for (uint256 i = 0; i < currentBets.length; i++) {
+            if (_getDifference(currentBets[i].guess, winningNumber) == smallestDiff) {
+                address winner = currentBets[i].player;
+                if (usdcToken != address(0)) {
+                    require(IERC20(usdcToken).transfer(winner, prizePerWinner), "Failed to transfer prize");
+                }
+                emit RoundResolved(winner, winningNumber, prizePerWinner); // Notify each winner
+            }
+        }
 
         // Reset round for next game!
         delete currentBets;

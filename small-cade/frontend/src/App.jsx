@@ -81,12 +81,30 @@ function App() {
         toBlock: 'latest',
       });
       
+      const groupedHistory = [];
+      for (const log of logs) {
+        const txHash = log.transactionHash;
+        const existingRound = groupedHistory.find(h => h.txHash === txHash);
+        
+        if (existingRound) {
+          existingRound.winners.push(log.args.winner);
+          existingRound.totalPrize += log.args.prize;
+        } else {
+          groupedHistory.push({
+            txHash: log.transactionHash,
+            winners: [log.args.winner],
+            winningNumber: Number(log.args.winningNumber),
+            totalPrize: log.args.prize,
+          });
+        }
+      }
+
       // Get the last 5 resolved rounds
-      const recentLogs = logs.slice(-5).reverse();
-      const history = recentLogs.map(log => ({
-        winner: log.args.winner,
-        winningNumber: Number(log.args.winningNumber),
-        prize: (Number(log.args.prize) / 10**6).toFixed(2), // Convert from 6 decimals
+      const fetchedHistory = groupedHistory.reverse().slice(0, 5);
+      const history = fetchedHistory.map(item => ({
+        winners: item.winners,
+        winningNumber: item.winningNumber,
+        prize: (Number(item.totalPrize) / 10**6).toFixed(2), // Convert from 6 decimals
       }));
       setHistoryList(history);
 
@@ -353,7 +371,10 @@ function App() {
                     <div key={idx} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg text-xs border border-slate-800/50">
                       <div className="flex flex-col">
                         <span className="font-mono font-bold text-emerald-400 mb-0.5">
-                          Winner: {item.winner.slice(0, 6)}...{item.winner.slice(-4)}
+                          {item.winners.length > 1 
+                            ? <span className="text-amber-400">{item.winners.length} Winners (Tie!)</span>
+                            : `Winner: ${item.winners[0].slice(0, 6)}...${item.winners[0].slice(-4)}`
+                          }
                         </span>
                         <span className="text-slate-400">
                           Winning #: <span className="font-bold text-white">{item.winningNumber}</span>
