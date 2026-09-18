@@ -5,12 +5,15 @@ pragma solidity ^0.8.24;
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
 }
 
 contract GameGuessNumber {
     // 1. Variabel State
     uint256 public constant BET_AMOUNT = 0.1 * 10**6; // 0.1 USDC (USDC has 6 decimal)
     address public usdcToken; // Address contract USDC
+    address public owner;     // Owner/Admin of the contract
+    bool public isGameActive; // Status of the game
     
     // Data for this round
     uint256 public roundEndTime;
@@ -30,11 +33,15 @@ contract GameGuessNumber {
     // Put USDC address here when deployed
     constructor(address _usdcToken) {
         usdcToken = _usdcToken;
+        owner = msg.sender;
+        isGameActive = true;
         roundEndTime = block.timestamp + 5 minutes; // First round!
     }
 
     // 1. FUNCTION to place bet
     function placeBet(uint8 guess) external {
+        require(isGameActive, "Game is currently shutdown/paused!");
+        
         // Auto-resolve previous round if time has passed
         if (block.timestamp >= roundEndTime) {
             _resolveRound();
@@ -106,7 +113,7 @@ contract GameGuessNumber {
         roundEndTime = block.timestamp + 5 minutes;
     }
 
-    // Helper function untuk read number of bets in this round
+    // Helper function to read number of bets in this round
     function getBetsCount() external view returns (uint256) {
         return currentBets.length;
     }
@@ -115,5 +122,34 @@ contract GameGuessNumber {
     function _getDifference(uint8 a, uint8 b) internal pure returns (uint8) {
         if (a > b) return a - b;
         return b - a;
+    }
+    
+    // --- ADMIN FUNCTIONS ---
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this");
+        _;
+    }
+
+    // Stop people from playing
+    function shutdownGame() external onlyOwner {
+        isGameActive = false;
+    }
+
+    // Start the game again
+    function startGame() external onlyOwner {
+        isGameActive = true;
+        roundEndTime = block.timestamp + 5 minutes; // reset timer
+    }
+
+    // Emergency rescue for trapped USDC or any other token
+    function emergencyWithdraw(address tokenAddress) external onlyOwner {
+        if (tokenAddress == address(0)) {
+            (bool success, ) = payable(owner).call{value: address(this).balance}("");
+            require(success, "ETH transfer failed");
+        } else {
+            uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
+            IERC20(tokenAddress).transfer(owner, balance);
+        }
     }
 }
