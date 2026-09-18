@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { usePrivy, useWallets, useCreateWallet } from '@privy-io/react-auth';
-import { createPublicClient, createWalletClient, custom, http, parseAbiItem } from 'viem';
+import { createPublicClient, createWalletClient, custom, http, parseAbiItem, parseAbi } from 'viem';
 import { defineChain } from 'viem';
 import { baseSepolia } from 'viem/chains';
-import wagerArtifact from './WagerGameABI.json';
+import gameArtifact from './GameGuessNumberABI.json';
 
 const anvilChain = defineChain({
   id: 31337,
@@ -20,7 +20,16 @@ const activeChain = isAnvil ? anvilChain : baseSepolia;
 const CONTRACT_ADDRESS = isAnvil 
   ? import.meta.env.VITE_CONTRACT_ADDRESS_ANVIL 
   : import.meta.env.VITE_CONTRACT_ADDRESS_SEPOLIA;
-const CONTRACT_ABI = wagerArtifact.abi;
+const CONTRACT_ABI = gameArtifact.abi;
+
+const USDC_ADDRESS = isAnvil 
+  ? import.meta.env.VITE_USDC_ADDRESS_ANVIL 
+  : import.meta.env.VITE_USDC_ADDRESS_SEPOLIA;
+const ERC20_ABI = parseAbi([
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function balanceOf(address account) view returns (uint256)'
+]);
 
 const publicClient = createPublicClient({
   chain: activeChain,
@@ -41,6 +50,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [txPending, setTxPending] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const [hasAllowance, setHasAllowance] = useState(false);
 
   const activeWallet = wallets[0] || user?.wallet;
 
@@ -121,6 +132,29 @@ function App() {
     }
   };
 
+  // Fix: Check allowance dynamically whenever activeWallet changes
+  useEffect(() => {
+    const checkAllowance = async () => {
+      if (activeWallet?.address) {
+        try {
+          const allowance = await publicClient.readContract({
+            address: USDC_ADDRESS,
+            abi: ERC20_ABI,
+            functionName: 'allowance',
+            args: [activeWallet.address, CONTRACT_ADDRESS],
+          });
+          setHasAllowance(allowance >= BigInt(100000));
+        } catch (err) {
+          console.error("Failed to check allowance:", err);
+        }
+      }
+    };
+    
+    checkAllowance();
+    const interval = setInterval(checkAllowance, 3000);
+    return () => clearInterval(interval);
+  }, [activeWallet?.address]);
+
   useEffect(() => {
     const loadData = async () => {
       await fetchContractData();
@@ -153,6 +187,41 @@ function App() {
 
     return () => clearInterval(timerInterval);
   }, [roundEndTime]);
+
+  const handleApprove = async () => {
+    const currentWallet = wallets[0];
+    if (!currentWallet) {
+      toast.error("Wallet not connected!");
+      return;
+    }
+
+    try {
+      setTxPending(true);
+      const provider = await currentWallet.getEthereumProvider();
+      const walletClient = createWalletClient({
+        account: currentWallet.address,
+        chain: activeChain,
+        transport: custom(provider),
+      });
+
+      const hash = await walletClient.writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [CONTRACT_ADDRESS, BigInt(1000000000)], // Approve a large amount so they don't have to do it every time
+      });
+
+      console.log("Approve Tx Hash:", hash);
+      toast.success(`Approving USDC... Tx Hash: ${hash.slice(0, 10)}...`);
+      // Wait a bit, then refresh
+      setTimeout(() => fetchContractData(), 3000);
+    } catch (err) {
+      console.error("Failed to approve:", err);
+      toast.error(`Failed: ${err.shortMessage || err.message}`);
+    } finally {
+      setTxPending(false);
+    }
+  };
 
   // Transaction 1: Place Bet / Enter Game
   const handlePlaceBet = async () => {
@@ -236,9 +305,9 @@ function App() {
             <div className="w-16 h-16 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl border border-indigo-500/20">
               🎯
             </div>
-            <h2 className="text-xl font-bold mb-2">Chill Capybara Wager Game</h2>
+            <h2 className="text-xl font-bold mb-2">Chill Capybara Guess Number Game</h2>
             <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-              Guess a number from 0–99. Entry is 0.1 USDC. The closest guess wins 50% of the pot prize!
+              Guess a number from 0-99. Entry is 0.1 USDC. The closest guess wins Cade Point (ptCADE) pot prize!
             </p>
             <button
               onClick={login}
@@ -318,13 +387,23 @@ function App() {
                     placeholder="e.g. 42"
                     className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg font-bold text-white focus:outline-none focus:border-indigo-500 transition disabled:opacity-50"
                   />
-                  <button
-                    onClick={handlePlaceBet}
-                    disabled={!guessInput || txPending || !wallets[0]}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {txPending ? 'Sending...' : "I'm feeling lucky"}
-                  </button>
+                  {hasAllowance ? (
+                    <button
+                      onClick={handlePlaceBet}
+                      disabled={!guessInput || txPending || !wallets[0]}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {txPending ? 'Sending...' : "I'm feeling lucky"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleApprove}
+                      disabled={txPending || !wallets[0]}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-indigo-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {txPending ? 'Approving...' : "Approve USDC"}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

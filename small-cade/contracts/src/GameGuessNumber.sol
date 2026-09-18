@@ -7,7 +7,7 @@ interface IERC20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
 }
 
-contract WagerGame {
+contract GameGuessNumber {
     // 1. Variabel State
     uint256 public constant BET_AMOUNT = 0.1 * 10**6; // 0.1 USDC (USDC has 6 decimal)
     address public usdcToken; // Address contract USDC
