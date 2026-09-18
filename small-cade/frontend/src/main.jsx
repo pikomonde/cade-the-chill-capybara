@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
 import { PrivyProvider } from '@privy-io/react-auth';
+import { baseSepolia } from 'viem/chains';
 import { defineChain } from 'viem';
 
 // Chain Anvil Local Configuration
@@ -10,20 +11,15 @@ const anvilChain = defineChain({
   id: 31337,
   name: 'Anvil Localhost',
   network: 'anvil',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'Ether',
-    symbol: 'ETH',
-  },
+  nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
   rpcUrls: {
-    default: {
-      http: ['http://127.0.0.1:8545'],
-    },
-    public: {
-      http: ['http://127.0.0.1:8545'],
-    },
+    default: { http: ['http://127.0.0.1:8545'] },
+    public: { http: ['http://127.0.0.1:8545'] },
   },
 });
+
+const isAnvil = import.meta.env.VITE_NETWORK === 'anvil';
+const activeChain = isAnvil ? anvilChain : baseSepolia;
 
 // Privy App ID from dashboard.privy.io
 const PRIVY_APP_ID = "cmu2f6oq2045a0cl5panvkswp";
@@ -42,8 +38,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           theme: 'dark',
           accentColor: '#676FFF',
         },
-        defaultChain: anvilChain,
-        supportedChains: [anvilChain],
+        defaultChain: activeChain,
+        supportedChains: [activeChain],
       }}
     >
       <App />

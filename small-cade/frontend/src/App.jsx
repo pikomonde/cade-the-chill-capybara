@@ -3,22 +3,28 @@ import toast, { Toaster } from 'react-hot-toast';
 import { usePrivy, useWallets, useCreateWallet } from '@privy-io/react-auth';
 import { createPublicClient, createWalletClient, custom, http, parseAbiItem } from 'viem';
 import { defineChain } from 'viem';
+import { baseSepolia } from 'viem/chains';
 import wagerArtifact from './WagerGameABI.json';
-
-const CONTRACT_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
-const CONTRACT_ABI = wagerArtifact.abi;
 
 const anvilChain = defineChain({
   id: 31337,
   name: 'Anvil Localhost',
   network: 'anvil',
   nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
-  rpcUrls: { default: { http: ['http://127.0.0.1:8545'] } },
+  rpcUrls: { default: { http: ['http://127.0.0.1:8545'] }, public: { http: ['http://127.0.0.1:8545'] } },
 });
 
+const isAnvil = import.meta.env.VITE_NETWORK === 'anvil';
+const activeChain = isAnvil ? anvilChain : baseSepolia;
+
+const CONTRACT_ADDRESS = isAnvil 
+  ? import.meta.env.VITE_CONTRACT_ADDRESS_ANVIL 
+  : import.meta.env.VITE_CONTRACT_ADDRESS_SEPOLIA;
+const CONTRACT_ABI = wagerArtifact.abi;
+
 const publicClient = createPublicClient({
-  chain: anvilChain,
-  transport: http('http://127.0.0.1:8545'),
+  chain: activeChain,
+  transport: isAnvil ? http('http://127.0.0.1:8545') : http(),
 });
 
 function App() {
@@ -166,7 +172,7 @@ function App() {
       const provider = await currentWallet.getEthereumProvider();
       const walletClient = createWalletClient({
         account: currentWallet.address,
-        chain: anvilChain,
+        chain: activeChain,
         transport: custom(provider),
       });
 

@@ -1,4 +1,4 @@
-.PHONY: build-and-deploy-contract-local run-chain-local run-frontend-local
+.PHONY: build-and-deploy-contract-local run-chain-local run-frontend-local deploy-sepolia
 
 build-and-deploy-contract-local:
 	cd contracts && forge build
@@ -8,3 +8,8 @@ run-chain-local:
 	anvil
 run-frontend-local:
 	cd frontend && npm run dev
+
+# bridge-eth-from-eth-sepolia-to-base-sepolia:
+# 	cast send 0xfd0Bf71F60660E2f608ed56e1659C450eB113120 "depositETH(uint32,bytes)" 200000 "0x" --value 0.001ether --rpc-url https://ethereum-sepolia-rpc.publicnode.com --private-key $$PRIVATE_KEY
+deploy-sepolia:
+	cd contracts && set -a && . ./.env && set +a && forge build && forge create src/WagerGame.sol:WagerGame --rpc-url $$BASE_SEPOLIA_RPC_URL --private-key $$PRIVATE_KEY --broadcast --constructor-args 0x036CbD53842c5426634e7929541eC2318f3dCF7e
