@@ -6,6 +6,17 @@ import { defineChain } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import gameArtifact from './GameGuessNumberABI.json';
 
+const ERROR_MESSAGES = {
+  GameIsShutdown: "Game is currently shutdown/paused!",
+  GuessNumberNotInRange: "Guess number should be between 0 - 99!",
+  USDCTransferFailure: "Failed to transfer USDC.",
+  PrizeTransferFailure: "Failed to transfer prize.",
+  UnauthorizedAccess: "Only owner can call this.",
+  ETHWithdrawFailure: "ETH transfer failed.",
+  InsufficientBalance: "Insufficient balance.",
+  InsufficientAllowance: "Insufficient allowance."
+};
+
 const anvilChain = defineChain({
   id: 31337,
   name: 'Anvil Localhost',
@@ -217,7 +228,8 @@ function App() {
       setTimeout(() => fetchContractData(), 3000);
     } catch (err) {
       console.error("Failed to approve:", err);
-      toast.error(`Failed: ${err.shortMessage || err.message}`);
+      const errorKey = err.cause?.name || err.name;
+      toast.error(`Failed: ${ERROR_MESSAGES[errorKey] || err.shortMessage || err.message}`);
     } finally {
       setTxPending(false);
     }
@@ -258,7 +270,8 @@ function App() {
       await fetchContractData();
     } catch (err) {
       console.error("Failed to place bet:", err);
-      toast.error(`Failed: ${err.shortMessage || err.message}`);
+      const errorKey = err.cause?.name || err.name;
+      toast.error(`Failed: ${ERROR_MESSAGES[errorKey] || err.shortMessage || err.message}`);
     } finally {
       setTxPending(false);
     }

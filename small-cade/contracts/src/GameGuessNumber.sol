@@ -9,7 +9,14 @@ interface IERC20 {
 }
 
 contract GameGuessNumber {
-    // 1. Variabel State
+    error GameIsShutdown();
+    error GuessNumberNotInRange();
+    error USDCTransferFailure();
+    error PrizeTransferFailure();
+    error UnauthorizedAccess();
+    error ETHWithdrawFailure();
+
+    // Variabel State
     uint256 public constant BET_AMOUNT = 0.1 * 10**6; // 0.1 USDC (USDC has 6 decimal)
     address public usdcToken; // Address contract USDC
     address public owner;     // Owner/Admin of the contract
@@ -40,18 +47,18 @@ contract GameGuessNumber {
 
     // 1. FUNCTION to place bet
     function placeBet(uint8 guess) external {
-        require(isGameActive, "Game is currently shutdown/paused!");
+        require(isGameActive, GameIsShutdown());
         
         // Auto-resolve previous round if time has passed
         if (block.timestamp >= roundEndTime) {
             _resolveRound();
         }
 
-        require(guess < 100, "Guess number should be between 0 - 99!");
+        require(guess < 100, GuessNumberNotInRange());
 
         // Get 0.1 USDC from player's wallet to this smart contract
         if (usdcToken != address(0)) {
-            require(IERC20(usdcToken).transferFrom(msg.sender, address(this), BET_AMOUNT), "Failed to transfer USDC");
+            require(IERC20(usdcToken).transferFrom(msg.sender, address(this), BET_AMOUNT), USDCTransferFailure());
         }
 
         currentBets.push(PlayerBet({
@@ -101,7 +108,7 @@ contract GameGuessNumber {
             if (_getDifference(currentBets[i].guess, winningNumber) == smallestDiff) {
                 address winner = currentBets[i].player;
                 if (usdcToken != address(0)) {
-                    require(IERC20(usdcToken).transfer(winner, prizePerWinner), "Failed to transfer prize");
+                    require(IERC20(usdcToken).transfer(winner, prizePerWinner), PrizeTransferFailure());
                 }
                 emit RoundResolved(winner, winningNumber, prizePerWinner); // Notify each winner
             }
@@ -127,7 +134,7 @@ contract GameGuessNumber {
     // --- ADMIN FUNCTIONS ---
     
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can call this");
+        require(msg.sender == owner, UnauthorizedAccess());
         _;
     }
 
@@ -146,7 +153,7 @@ contract GameGuessNumber {
     function emergencyWithdraw(address tokenAddress) external onlyOwner {
         if (tokenAddress == address(0)) {
             (bool success, ) = payable(owner).call{value: address(this).balance}("");
-            require(success, "ETH transfer failed");
+            require(success, ETHWithdrawFailure());
         } else {
             uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
             IERC20(tokenAddress).transfer(owner, balance);

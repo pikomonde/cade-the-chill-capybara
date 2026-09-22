@@ -2,6 +2,9 @@
 pragma solidity ^0.8.24;
 
 contract MockUSDC {
+    error InsufficientBalance();
+    error InsufficientAllowance();
+
     string public name = "Mock USDC";
     string public symbol = "mUSDC";
     uint8 public decimals = 6;
@@ -15,7 +18,7 @@ contract MockUSDC {
 
     constructor() {
         // Automatic mint 1,000,000 USDC for deployer
-        _mint(msg.sender, 1000000 * 10**6); 
+        _mint(msg.sender, 1_000_000 * 10**6); 
     }
 
     function _mint(address to, uint256 amount) internal {
@@ -25,7 +28,7 @@ contract MockUSDC {
     }
 
     function transfer(address to, uint256 amount) external returns (bool) {
-        require(balanceOf[msg.sender] >= amount, "Insufficient balance");
+        require(balanceOf[msg.sender] >= amount, InsufficientBalance());
         balanceOf[msg.sender] -= amount;
         balanceOf[to] += amount;
         emit Transfer(msg.sender, to, amount);
@@ -39,8 +42,8 @@ contract MockUSDC {
     }
 
     function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        require(balanceOf[from] >= amount, "Insufficient balance");
-        require(allowance[from][msg.sender] >= amount, "Insufficient allowance");
+        require(balanceOf[from] >= amount, InsufficientBalance());
+        require(allowance[from][msg.sender] >= amount, InsufficientAllowance());
         allowance[from][msg.sender] -= amount;
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
