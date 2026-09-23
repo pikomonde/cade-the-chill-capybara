@@ -64,7 +64,7 @@ echo "📝 Updating frontend/.env automatically..."
 sed -i "s/^VITE_USDC_ADDRESS_ANVIL=.*/VITE_USDC_ADDRESS_ANVIL=$MOCK_USDC/" ../frontend/.env
 sed -i "s/^VITE_CADE_TOKEN_ADDRESS_ANVIL=.*/VITE_CADE_TOKEN_ADDRESS_ANVIL=$CADE_TOKEN/" ../frontend/.env
 sed -i "s/^VITE_CADE_POINTS_ADDRESS_ANVIL=.*/VITE_CADE_POINTS_ADDRESS_ANVIL=$CADE_POINTS/" ../frontend/.env
-sed -i "s/^VITE_CONTRACT_ADDRESS_ANVIL=.*/VITE_CONTRACT_ADDRESS_ANVIL=$GAME_ADDRESS/" ../frontend/.env
+sed -i "s/^VITE_GAME_GUESS_NUMBER_ADDRESS_ANVIL=.*/VITE_GAME_GUESS_NUMBER_ADDRESS_ANVIL=$GAME_ADDRESS/" ../frontend/.env
 
 #================================ Copying ABI ================================
 echo "📂 Copying ABI..."

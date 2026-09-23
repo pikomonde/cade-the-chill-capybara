@@ -21,6 +21,8 @@ CADE_TOKEN=$(echo "$OUT" | awk '/Deployed to:/ {print $3}')
 echo "✅ CadeToken Deployed to: $CADE_TOKEN"
 
 #================================ Deploying CadePoints ================================
+echo "⏳ Waiting 3s for RPC nonce sync..."
+sleep 3
 echo "🚀 Deploying CadePoints to Base Sepolia..."
 OUT=$(forge create src/CadePoints.sol:CadePoints --rpc-url $BASE_SEPOLIA_RPC_URL --private-key $PRIVATE_KEY --broadcast)
 
@@ -30,6 +32,7 @@ echo "✅ CadePoints Deployed to: $CADE_POINTS"
 
 #================================ Deploying GameGuessNumber ================================
 echo ""
+echo "⏳ Waiting 3s for RPC nonce sync..."; sleep 3
 echo "🚀 Deploying GameGuessNumber to Base Sepolia..."
 GAME_OUT=$(forge create src/GameGuessNumber.sol:GameGuessNumber \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
@@ -45,12 +48,14 @@ echo "✅ GameGuessNumber Deployed to: $GAME_ADDRESS"
 echo "🔐 Configuring Contract Permissions..."
 
 # 1. Approve GameGuessNumber to spend Deployer's CadeTokens for cashback
+echo "   Waiting 3s for RPC sync..."; sleep 3
 echo "   Approving GameGuessNumber to spend CadeToken..."
 cast send $CADE_TOKEN "approve(address,uint256)" $GAME_ADDRESS 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
 # 2. Authorize GameGuessNumber to mint CadePoints for prizes
+echo "   Waiting 3s for RPC sync..."; sleep 3
 echo "   Authorizing GameGuessNumber to mint CadePoints..."
 cast send $CADE_POINTS "addGameContract(address)" $GAME_ADDRESS \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
@@ -61,7 +66,7 @@ echo ""
 echo "📝 Updating frontend/.env automatically..."
 sed -i "s/^VITE_CADE_TOKEN_ADDRESS_SEPOLIA=.*/VITE_CADE_TOKEN_ADDRESS_SEPOLIA=$CADE_TOKEN/" ../frontend/.env
 sed -i "s/^VITE_CADE_POINTS_ADDRESS_SEPOLIA=.*/VITE_CADE_POINTS_ADDRESS_SEPOLIA=$CADE_POINTS/" ../frontend/.env
-sed -i "s/^VITE_CONTRACT_ADDRESS_SEPOLIA=.*/VITE_CONTRACT_ADDRESS_SEPOLIA=$GAME_ADDRESS/" ../frontend/.env
+sed -i "s/^VITE_GAME_GUESS_NUMBER_ADDRESS_SEPOLIA=.*/VITE_GAME_GUESS_NUMBER_ADDRESS_SEPOLIA=$GAME_ADDRESS/" ../frontend/.env
 
 #================================ Copying ABI ================================
 echo "📂 Copying ABI..."

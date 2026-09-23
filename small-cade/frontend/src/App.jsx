@@ -30,8 +30,8 @@ const isAnvil = import.meta.env.VITE_NETWORK === 'anvil';
 const activeChain = isAnvil ? anvilChain : baseSepolia;
 
 const CONTRACT_ADDRESS = isAnvil 
-  ? import.meta.env.VITE_CONTRACT_ADDRESS_ANVIL 
-  : import.meta.env.VITE_CONTRACT_ADDRESS_SEPOLIA;
+  ? import.meta.env.VITE_GAME_GUESS_NUMBER_ADDRESS_ANVIL 
+  : import.meta.env.VITE_GAME_GUESS_NUMBER_ADDRESS_SEPOLIA;
 const CONTRACT_ABI = gameArtifact.abi;
 
 const USDC_ADDRESS = isAnvil 
@@ -171,10 +171,13 @@ function App() {
       setPlayersList(players);
 
       // Fetch History via Events
+      const currentBlock = await publicClient.getBlockNumber();
+      const fromBlock = currentBlock > 1000n ? currentBlock - 1000n : 0n;
+
       const logs = await publicClient.getLogs({
         address: CONTRACT_ADDRESS,
         event: parseAbiItem('event RoundResolved(address indexed winner, uint8 winningNumber, uint256 prize)'),
-        fromBlock: 'earliest',
+        fromBlock: fromBlock,
         toBlock: 'latest',
       });
       
