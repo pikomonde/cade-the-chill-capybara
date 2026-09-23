@@ -21,7 +21,8 @@ contract GameGuessNumber {
     error ETHWithdrawFailure();
 
     // Variabel State
-    uint256 public constant BET_AMOUNT = 0.1 * 10**6; // 0.1 USDC (USDC has 6 decimal)
+    uint256 public constant ENTRY_FEE = 0.1 * 10**6; // 0.1 USDC (USDC has 6 decimal)
+    uint256 public constant PRIZE_AMOUNT = 0.1 * 10**18; // 0.1 CADE-PT (CADE-PT has 18 decimal)
     address public usdcToken;   // Address contract USDC
     address public cadeToken;   // Address for CADE cashback
     address public cadePoints;  // Address for CADE-PT prizes
@@ -33,15 +34,15 @@ contract GameGuessNumber {
     uint256 public roundEndTime;
     uint256 public totalGuesses; // Total guesses (will be mod 100)
     
-    struct PlayerBet {
+    struct PlayerGuess {
         address player;
         uint8 guess; // Number guess between 1-100
     }
     
-    PlayerBet[] public currentBets; // List of player in this round
+    PlayerGuess[] public currentGuesses; // List of player in this round
 
     // Event (recorded in blockchain & and read by frontend)
-    event BetPlaced(address indexed player, uint8 guess);
+    event GuessSubmitted(address indexed player, uint8 guess);
     event RoundResolved(address indexed winner, uint8 winningNumber, uint256 prize);
 
     // Put USDC address here when deployed
@@ -55,8 +56,8 @@ contract GameGuessNumber {
         roundEndTime = block.timestamp + 5 minutes; // First round!
     }
 
-    // 1. FUNCTION to place bet
-    function placeBet(uint8 guess) external {
+    // 1. FUNCTION to submit guess
+    function submitGuess(uint8 guess) external {
         require(isGameActive, GameIsShutdown());
         
         // Auto-resolve previous round if time has passed
@@ -68,7 +69,7 @@ contract GameGuessNumber {
 
         // Get 0.1 USDC from player's wallet to this smart contract
         if (usdcToken != address(0)) {
-            require(IERC20(usdcToken).transferFrom(msg.sender, bankAddress, BET_AMOUNT), USDCTransferFailure());
+            require(IERC20(usdcToken).transferFrom(msg.sender, bankAddress, ENTRY_FEE), USDCTransferFailure());
         }
 
         // Give 0.1 CADE cashback to player
@@ -77,19 +78,19 @@ contract GameGuessNumber {
             require(IERC20(cadeToken).transferFrom(bankAddress, msg.sender, cashbackAmount), "Failed CADE cashback");
         }
 
-        currentBets.push(PlayerBet({
+        currentGuesses.push(PlayerGuess({
             player: msg.sender,
             guess: guess
         }));
         
         totalGuesses += guess;
 
-        emit BetPlaced(msg.sender, guess); // Send notification to frontend
+        emit GuessSubmitted(msg.sender, guess); // Send notification to frontend
     }
 
     // 2. FUNCTION to calculate winner (Internal auto-resolve)
     function _resolveRound() internal {
-        if (currentBets.length == 0) {
+        if (currentGuesses.length == 0) {
             // No players in the last round, just reset timer
             roundEndTime = block.timestamp + 5 minutes;
             return;
@@ -98,9 +99,9 @@ contract GameGuessNumber {
         uint8 winningNumber = uint8(totalGuesses % 100); 
         
         // 1. Find the smallest diff
-        uint8 smallestDiff = _getDifference(currentBets[0].guess, winningNumber);
-        for (uint256 i = 1; i < currentBets.length; i++) {
-            uint8 diff = _getDifference(currentBets[i].guess, winningNumber);
+        uint8 smallestDiff = _getDifference(currentGuesses[0].guess, winningNumber);
+        for (uint256 i = 1; i < currentGuesses.length; i++) {
+            uint8 diff = _getDifference(currentGuesses[i].guess, winningNumber);
             if (diff < smallestDiff) {
                 smallestDiff = diff;
             }
@@ -108,37 +109,36 @@ contract GameGuessNumber {
 
         // 2. Count how many players share this smallest diff
         uint256 winnerCount = 0;
-        for (uint256 i = 0; i < currentBets.length; i++) {
-            if (_getDifference(currentBets[i].guess, winningNumber) == smallestDiff) {
+        for (uint256 i = 0; i < currentGuesses.length; i++) {
+            if (_getDifference(currentGuesses[i].guess, winningNumber) == smallestDiff) {
                 winnerCount++;
             }
         }
 
-        // 3. Share prize (50% ke Winners)
-        uint256 totalPrize = currentBets.length * BET_AMOUNT;
-        uint256 totalWinnerPrize = totalPrize / 2;
-        uint256 prizePerWinner = totalWinnerPrize / winnerCount;
+        // 3. Share prize (100% of PRIZE_AMOUNT pool to Winners)
+        uint256 totalPrizePool = currentGuesses.length * PRIZE_AMOUNT;
+        uint256 prizePerWinner = totalPrizePool / winnerCount;
 
         // 4. Distribute to all tied winners
-        for (uint256 i = 0; i < currentBets.length; i++) {
-            if (_getDifference(currentBets[i].guess, winningNumber) == smallestDiff) {
-                address winner = currentBets[i].player;
+        for (uint256 i = 0; i < currentGuesses.length; i++) {
+            if (_getDifference(currentGuesses[i].guess, winningNumber) == smallestDiff) {
+                address winner = currentGuesses[i].player;
                 if (cadePoints != address(0)) {
                     ICadePoints(cadePoints).mint(winner, prizePerWinner);
                 }
-                emit RoundResolved(winner, winningNumber, prizePerWinner); // Notify each winner
+                emit RoundResolved(winner, winningNumber, prizePerWinner); // Notify each winner with 18 decimal value
             }
         }
 
         // Reset round for next game!
-        delete currentBets;
+        delete currentGuesses;
         totalGuesses = 0;
         roundEndTime = block.timestamp + 5 minutes;
     }
 
-    // Helper function to read number of bets in this round
-    function getBetsCount() external view returns (uint256) {
-        return currentBets.length;
+    // Helper function to read number of guesses in this round
+    function getGuessesCount() external view returns (uint256) {
+        return currentGuesses.length;
     }
 
     // Helper function

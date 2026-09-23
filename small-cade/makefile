@@ -9,6 +9,8 @@ check-balance-usdc-on-anvil:
 	cast call $$VITE_USDC_ADDRESS_ANVIL "balanceOf(address)(uint256)" $$USER_WALLET_ADDRESS --rpc-url http://127.0.0.1:8545
 build-and-deploy-contract-local:
 	bash scripts/build-and-deploy-contract-local.sh
+airdrop-eth-on-anvil:
+	cast send $$USER_WALLET_ADDRESS --value 10ether --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 airdrop-usdc-on-anvil:
 	cd frontend && . ./.env && \
 	cast send $$VITE_USDC_ADDRESS_ANVIL "transfer(address,uint256)" $$USER_WALLET_ADDRESS 1000000000 --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
