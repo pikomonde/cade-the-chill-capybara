@@ -8,6 +8,10 @@ interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
 }
 
+interface ICadePoints {
+    function mint(address to, uint256 amount) external;
+}
+
 contract GameGuessNumber {
     error GameIsShutdown();
     error GuessNumberNotInRange();
@@ -18,8 +22,11 @@ contract GameGuessNumber {
 
     // Variabel State
     uint256 public constant BET_AMOUNT = 0.1 * 10**6; // 0.1 USDC (USDC has 6 decimal)
-    address public usdcToken; // Address contract USDC
-    address public owner;     // Owner/Admin of the contract
+    address public usdcToken;   // Address contract USDC
+    address public cadeToken;   // Address for CADE cashback
+    address public cadePoints;  // Address for CADE-PT prizes
+    address public bankAddress; // Treasury address holding CADE
+    address public owner;       // Owner/Admin of the contract
     bool public isGameActive; // Status of the game
     
     // Data for this round
@@ -38,8 +45,11 @@ contract GameGuessNumber {
     event RoundResolved(address indexed winner, uint8 winningNumber, uint256 prize);
 
     // Put USDC address here when deployed
-    constructor(address _usdcToken) {
+    constructor(address _usdcToken, address _cadeToken, address _cadePoints) {
         usdcToken = _usdcToken;
+        cadeToken = _cadeToken;
+        cadePoints = _cadePoints;
+        bankAddress = msg.sender;
         owner = msg.sender;
         isGameActive = true;
         roundEndTime = block.timestamp + 5 minutes; // First round!
@@ -58,7 +68,13 @@ contract GameGuessNumber {
 
         // Get 0.1 USDC from player's wallet to this smart contract
         if (usdcToken != address(0)) {
-            require(IERC20(usdcToken).transferFrom(msg.sender, address(this), BET_AMOUNT), USDCTransferFailure());
+            require(IERC20(usdcToken).transferFrom(msg.sender, bankAddress, BET_AMOUNT), USDCTransferFailure());
+        }
+
+        // Give 0.1 CADE cashback to player
+        if (cadeToken != address(0)) {
+            uint256 cashbackAmount = 100 * 10**18;
+            require(IERC20(cadeToken).transferFrom(bankAddress, msg.sender, cashbackAmount), "Failed CADE cashback");
         }
 
         currentBets.push(PlayerBet({
@@ -107,8 +123,8 @@ contract GameGuessNumber {
         for (uint256 i = 0; i < currentBets.length; i++) {
             if (_getDifference(currentBets[i].guess, winningNumber) == smallestDiff) {
                 address winner = currentBets[i].player;
-                if (usdcToken != address(0)) {
-                    require(IERC20(usdcToken).transfer(winner, prizePerWinner), PrizeTransferFailure());
+                if (cadePoints != address(0)) {
+                    ICadePoints(cadePoints).mint(winner, prizePerWinner);
                 }
                 emit RoundResolved(winner, winningNumber, prizePerWinner); // Notify each winner
             }
@@ -147,6 +163,24 @@ contract GameGuessNumber {
     function startGame() external onlyOwner {
         isGameActive = true;
         roundEndTime = block.timestamp + 5 minutes; // reset timer
+    }
+
+    // --- SETTER FUNCTIONS FOR UPGRADABILITY ---
+    
+    function setUSDCToken(address _usdcToken) external onlyOwner {
+        usdcToken = _usdcToken;
+    }
+
+    function setCadeToken(address _cadeToken) external onlyOwner {
+        cadeToken = _cadeToken;
+    }
+
+    function setCadePoints(address _cadePoints) external onlyOwner {
+        cadePoints = _cadePoints;
+    }
+
+    function setBankAddress(address _bankAddress) external onlyOwner {
+        bankAddress = _bankAddress;
     }
 
     // Emergency rescue for trapped USDC or any other token
