@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {BasePaymaster} from "account-abstraction/core/BasePaymaster.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "account-abstraction/core/Helpers.sol";
+import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
 /**
  * @title CustomWhitelistPaymaster
@@ -14,7 +15,7 @@ contract CustomWhitelistPaymaster is BasePaymaster {
     // Mapping to store multiple whitelisted games/contracts
     mapping(address => bool) public isWhitelisted;
 
-    constructor(address _entryPoint) BasePaymaster(IEntryPoint(_entryPoint)) {}
+    constructor(address _entryPoint) BasePaymaster(IEntryPoint(_entryPoint), msg.sender) {}
 
     // Add a contract to the whitelist
     function addWhitelistedContract(address _contract) external onlyOwner {
