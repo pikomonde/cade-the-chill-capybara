@@ -4,3 +4,9 @@
 [submodule "small-cade/contracts/lib/openzeppelin-contracts"]
 	path = small-cade/contracts/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "small-cade/contracts/lib/account-abstraction"]
+	path = small-cade/contracts/lib/account-abstraction
+	url = https://github.com/eth-infinitism/account-abstraction
+[submodule "small-cade/contracts/lib/v3-periphery"]
+	path = small-cade/contracts/lib/v3-periphery
+	url = https://github.com/Uniswap/v3-periphery

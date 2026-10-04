@@ -12,6 +12,10 @@ interface ICadePoints {
     function mint(address to, uint256 amount) external;
 }
 
+interface ITreasury {
+    function getPlayCashback() external view returns (uint256);
+}
+
 contract GameGuessNumber {
     error GameIsShutdown();
     error GuessNumberNotInRange();
@@ -26,7 +30,7 @@ contract GameGuessNumber {
     address public usdcToken;   // Address contract USDC
     address public cadeToken;   // Address for CADE cashback
     address public cadePoints;  // Address for CADE-PT prizes
-    address public bankAddress; // Treasury address holding CADE
+    address public bankAccountAddress; // Treasury address holding CADE
     address public owner;       // Owner/Admin of the contract
     bool public isGameActive; // Status of the game
     
@@ -50,13 +54,16 @@ contract GameGuessNumber {
         usdcToken = _usdcToken;
         cadeToken = _cadeToken;
         cadePoints = _cadePoints;
-        bankAddress = msg.sender;
+        bankAccountAddress = msg.sender;
         owner = msg.sender;
         isGameActive = true;
         roundEndTime = block.timestamp + 5 minutes; // First round!
     }
 
     // 1. FUNCTION to submit guess
+    // [SECURITY NOTE]: Because this game's gas is sponsored by a Whitelist Paymaster, 
+    // every function that alters state MUST charge a minimum amount of USDC. 
+    // If we have free functions, malicious users could spam them to drain our gas balance.
     function submitGuess(uint8 guess) external {
         require(isGameActive, GameIsShutdown());
         
@@ -69,13 +76,22 @@ contract GameGuessNumber {
 
         // Get 0.1 USDC from player's wallet to this smart contract
         if (usdcToken != address(0)) {
-            require(IERC20(usdcToken).transferFrom(msg.sender, bankAddress, ENTRY_FEE), USDCTransferFailure());
+            require(IERC20(usdcToken).transferFrom(msg.sender, bankAccountAddress, ENTRY_FEE), USDCTransferFailure());
         }
 
-        // Give 0.1 CADE cashback to player
-        if (cadeToken != address(0)) {
-            uint256 cashbackAmount = 100 * 10**18;
-            require(IERC20(cadeToken).transferFrom(bankAddress, msg.sender, cashbackAmount), "Failed CADE cashback");
+        // Give dynamic CADE cashback to player
+        if (cadeToken != address(0) && bankAccountAddress != address(0)) {
+            uint256 cashbackAmount;
+            
+            // Check if the bank is just a normal wallet (EOA) or a Smart Contract
+            if (bankAccountAddress.code.length == 0) {
+                cashbackAmount = 100_000 * 10**18; // Fixed 100k CADE for normal wallet
+            } else {
+                // If it's a contract, we assume it's the Treasury and read dynamically
+                cashbackAmount = ITreasury(bankAccountAddress).getPlayCashback();
+            }
+            
+            require(IERC20(cadeToken).transferFrom(bankAccountAddress, msg.sender, cashbackAmount), "Failed CADE cashback");
         }
 
         currentGuesses.push(PlayerGuess({
@@ -179,8 +195,8 @@ contract GameGuessNumber {
         cadePoints = _cadePoints;
     }
 
-    function setBankAddress(address _bankAddress) external onlyOwner {
-        bankAddress = _bankAddress;
+    function setBankAccountAddress(address _bankAccountAddress) external onlyOwner {
+        bankAccountAddress = _bankAccountAddress;
     }
 
     // Emergency rescue for trapped USDC or any other token
