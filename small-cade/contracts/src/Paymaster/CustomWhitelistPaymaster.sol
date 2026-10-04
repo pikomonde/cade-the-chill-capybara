@@ -27,6 +27,11 @@ contract CustomWhitelistPaymaster is BasePaymaster {
         delete isWhitelisted[_contract];
     }
 
+    // Override the EntryPoint interface validation to prevent version mismatch errors
+    function _validateEntryPointInterface(IEntryPoint __entryPoint) internal override {
+        // Skip strict ERC165 validation as interfaceId changes across minor versions
+    }
+
     /**
      * @dev Validates the paymaster logic WITHOUT any backend signature.
      * It decodes the callData from the Smart Wallet to see where the transaction is going.

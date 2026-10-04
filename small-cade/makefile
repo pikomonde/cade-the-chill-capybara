@@ -29,6 +29,9 @@ check-balance-eth-on-base-sepolia:
 check-balance-usdc-on-base-sepolia:
 	cd frontend && . ./.env && \
 	cast call $$VITE_USDC_ADDRESS_SEPOLIA "balanceOf(address)(uint256)" $$USER_WALLET_ADDRESS --rpc-url https://sepolia.base.org
+check-balance-cade-token-on-base-sepolia:
+	cd frontend && . ./.env && \
+	cast call $$VITE_CADE_TOKEN_ADDRESS_SEPOLIA "balanceOf(address)(uint256)" $$USER_WALLET_ADDRESS --rpc-url https://sepolia.base.org
 # bridge-eth-from-eth-sepolia-to-base-sepolia:
 # 	cast send 0xfd0Bf71F60660E2f608ed56e1659C450eB113120 "depositETH(uint32,bytes)" 200000 "0x" --value 0.001ether --rpc-url https://ethereum-sepolia-rpc.publicnode.com --private-key $$PRIVATE_KEY
 build-and-deploy-contract-sepolia:
