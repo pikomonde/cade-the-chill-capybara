@@ -198,6 +198,11 @@ contract Treasury {
         emit DexActivated(_router);
     }
 
+    // Allow Game to pull CADE tokens for cashback
+    function approveGame(address _game) external onlyOwner {
+        IERC20(cadeToken).approve(_game, type(uint256).max);
+    }
+
     function setPaymaster(address _paymaster) external onlyOwner {
         paymasterAddress = _paymaster;
     }

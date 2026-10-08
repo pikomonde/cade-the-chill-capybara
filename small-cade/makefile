@@ -22,6 +22,7 @@ run-frontend-local:
 # ========== sepolia testnet ==========
 # metamask deployer wallet: 0x684919C697394d11e444D86B110B21545Ed1B06D
 # privy tester wallet: 0xb68Cc176E710E18C6a0BcdC8Ed68A1b5cD12B0e5
+# privy tester smart wallet: 0xb77fBF1e7EA84Be0EfaeF85AaB7B8d0895517993
 check-balance-eth-on-eth-sepolia:
 	cast balance $$USER_WALLET_ADDRESS --rpc-url https://ethereum-sepolia-rpc.publicnode.com --ether
 check-balance-eth-on-base-sepolia:
@@ -32,6 +33,12 @@ check-balance-usdc-on-base-sepolia:
 check-balance-cade-token-on-base-sepolia:
 	cd frontend && . ./.env && \
 	cast call $$VITE_CADE_TOKEN_ADDRESS_SEPOLIA "balanceOf(address)(uint256)" $$USER_WALLET_ADDRESS --rpc-url https://sepolia.base.org
+# transfer-usdc-on-base-sepolia:
+# 	cd frontend && . ./.env && \
+# 	cast send $$VITE_USDC_ADDRESS_SEPOLIA "transfer(address,uint256)(bool)" $$USER_RECEIVER_WALLET_ADDRESS $$AMOUNT --rpc-url https://sepolia.base.org --private-key $$PRIVATE_KEY_SENDER
+# transfer-cade-token-on-base-sepolia:
+# 	cd frontend && . ./.env && \
+# 	cast send $$VITE_CADE_TOKEN_ADDRESS_SEPOLIA "transfer(address,uint256)(bool)" $$USER_RECEIVER_WALLET_ADDRESS $$AMOUNT --rpc-url https://sepolia.base.org --private-key $$PRIVATE_KEY_SENDER
 # bridge-eth-from-eth-sepolia-to-base-sepolia:
 # 	cast send 0xfd0Bf71F60660E2f608ed56e1659C450eB113120 "depositETH(uint32,bytes)" 200000 "0x" --value 0.001ether --rpc-url https://ethereum-sepolia-rpc.publicnode.com --private-key $$PRIVATE_KEY
 build-and-deploy-contract-sepolia:

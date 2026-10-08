@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { usePrivy, useWallets, useCreateWallet } from '@privy-io/react-auth';
-import { createPublicClient, createWalletClient, custom, http, parseAbiItem, parseAbi } from 'viem';
+import { createPublicClient, http, parseAbiItem, parseAbi } from 'viem';
 import { defineChain } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import gameArtifact from './GameGuessNumberABI.json';
 import cadeTokenArtifact from './CadeTokenABI.json';
+import { getSmartWalletClient } from './smartWalletClient.js';
 
 const ERROR_MESSAGES = {
   GameIsShutdown: "Game is currently shutdown/paused!",
@@ -46,6 +47,10 @@ const CADE_POINTS_ADDRESS = isAnvil
   ? import.meta.env.VITE_CADE_POINTS_ADDRESS_ANVIL 
   : import.meta.env.VITE_CADE_POINTS_ADDRESS_SEPOLIA;
 
+const PAYMASTER_ADDRESS = isAnvil 
+  ? import.meta.env.VITE_PAYMASTER_ADDRESS_ANVIL 
+  : import.meta.env.VITE_PAYMASTER_ADDRESS_SEPOLIA;
+
 const ERC20_ABI = parseAbi([
   'function allowance(address owner, address spender) view returns (uint256)',
   'function approve(address spender, uint256 amount) returns (bool)',
@@ -58,7 +63,7 @@ const publicClient = createPublicClient({
 });
 
 function App() {
-  const { login, logout, authenticated, user, ready } = usePrivy();
+  const { login, logout, authenticated, ready } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
   const [guessInput, setGuessInput] = useState('');
@@ -74,6 +79,8 @@ function App() {
 
   const [hasAllowance, setHasAllowance] = useState(false);
   const [activeTab, setActiveTab] = useState('game'); // 'game' or 'profile'
+  const [smartWalletAddress, setSmartWalletAddress] = useState(null);
+  const [smartAccountClient, setSmartAccountClient] = useState(null);
 
   // Token Balances
   const [cadeBalance, setCadeBalance] = useState('0');
@@ -87,25 +94,39 @@ function App() {
   const [inputSub, setInputSub] = useState('C');
   const [inputCustomText, setInputCustomText] = useState('');
 
-  const activeWallet = wallets[0] || user?.wallet;
+  useEffect(() => {
+    const initSmartWallet = async () => {
+      if (wallets[0]) {
+        try {
+          const client = await getSmartWalletClient(wallets[0], activeChain, PAYMASTER_ADDRESS);
+          setSmartAccountClient(client);
+          setSmartWalletAddress(client.account.address);
+        } catch (e) {
+          console.error("Failed to init smart wallet", e);
+        }
+      }
+    };
+    initSmartWallet();
+  }, [wallets[0]?.address]);
+
 
   const handleCopyAddress = () => {
-    if (activeWallet?.address) {
-      navigator.clipboard.writeText(activeWallet.address);
+    if (smartWalletAddress) {
+      navigator.clipboard.writeText(smartWalletAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const fetchTokenBalances = async () => {
-    if (!activeWallet?.address) return;
+    if (!smartWalletAddress) return;
     try {
       if (CADE_TOKEN_ADDRESS && CADE_TOKEN_ADDRESS !== '') {
         const cadeBal = await publicClient.readContract({
           address: CADE_TOKEN_ADDRESS,
           abi: ERC20_ABI,
           functionName: 'balanceOf',
-          args: [activeWallet.address],
+          args: [smartWalletAddress],
         });
         setCadeBalance((Number(cadeBal) / 10**18).toFixed(2));
   
@@ -114,7 +135,7 @@ function App() {
           address: CADE_TOKEN_ADDRESS,
           abi: cadeTokenArtifact.abi,
           functionName: 'vibeCheck',
-          args: [activeWallet.address],
+          args: [smartWalletAddress],
         });
         setVibeStatus(checkResult);
   
@@ -122,7 +143,7 @@ function App() {
           address: CADE_TOKEN_ADDRESS,
           abi: cadeTokenArtifact.abi,
           functionName: 'getVibe',
-          args: [activeWallet.address],
+          args: [smartWalletAddress],
         });
         setVibeCombo(vibeData[0]);
         setVibeText(vibeData[1]);
@@ -133,7 +154,7 @@ function App() {
           address: CADE_POINTS_ADDRESS,
           abi: ERC20_ABI,
           functionName: 'balanceOf',
-          args: [activeWallet.address],
+          args: [smartWalletAddress],
         });
         setCadePtBalance((Number(ptBal) / 10**18).toFixed(2));
       }
@@ -172,7 +193,7 @@ function App() {
 
       // Fetch History via Events
       const currentBlock = await publicClient.getBlockNumber();
-      const fromBlock = currentBlock > 1000n ? currentBlock - 1000n : 0n;
+      const fromBlock = currentBlock > 499n ? currentBlock - 499n : 0n;
 
       const logs = await publicClient.getLogs({
         address: CONTRACT_ADDRESS,
@@ -217,13 +238,13 @@ function App() {
 
   useEffect(() => {
     const checkAllowance = async () => {
-      if (activeWallet?.address) {
+      if (smartWalletAddress) {
         try {
           const allowance = await publicClient.readContract({
             address: USDC_ADDRESS,
             abi: ERC20_ABI,
             functionName: 'allowance',
-            args: [activeWallet.address, CONTRACT_ADDRESS],
+            args: [smartWalletAddress, CONTRACT_ADDRESS],
           });
           setHasAllowance(allowance >= BigInt(100000));
         } catch (err) {
@@ -235,7 +256,7 @@ function App() {
     checkAllowance();
     const interval = setInterval(checkAllowance, 3000);
     return () => clearInterval(interval);
-  }, [activeWallet?.address]);
+  }, [smartWalletAddress]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -250,7 +271,7 @@ function App() {
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWallet?.address]);
+  }, [smartWalletAddress]);
 
   useEffect(() => {
     const timerInterval = setInterval(() => {
@@ -273,26 +294,17 @@ function App() {
   }, [roundEndTime]);
 
   const handleApprove = async () => {
-    const currentWallet = wallets[0];
-    if (!currentWallet) {
-      toast.error("Wallet not connected!");
+    if (!smartAccountClient) {
+      toast.error("Smart Wallet not ready!");
       return;
     }
-
     try {
       setTxPending(true);
-      const provider = await currentWallet.getEthereumProvider();
-      const walletClient = createWalletClient({
-        account: currentWallet.address,
-        chain: activeChain,
-        transport: custom(provider),
-      });
-
-      const hash = await walletClient.writeContract({
+      const hash = await smartAccountClient.writeContract({
         address: USDC_ADDRESS,
         abi: ERC20_ABI,
         functionName: 'approve',
-        args: [CONTRACT_ADDRESS, BigInt(1000000000)], // Approve a large amount so they don't have to do it every time
+        args: [CONTRACT_ADDRESS, BigInt(1000000000)],
       });
 
       console.log("Approve Tx Hash:", hash);
@@ -315,22 +327,15 @@ function App() {
       return;
     }
 
-    const currentWallet = wallets[0];
-    if (!currentWallet) {
-      toast.error("Wallet not connected!");
+    if (!smartAccountClient) {
+      toast.error("Smart Wallet not ready!");
       return;
     }
 
     try {
       setTxPending(true);
-      const provider = await currentWallet.getEthereumProvider();
-      const walletClient = createWalletClient({
-        account: currentWallet.address,
-        chain: activeChain,
-        transport: custom(provider),
-      });
 
-      const hash = await walletClient.writeContract({
+      const hash = await smartAccountClient.writeContract({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
         functionName: 'submitGuess',
@@ -357,26 +362,19 @@ function App() {
       return;
     }
 
-    const currentWallet = wallets[0];
-    if (!currentWallet) {
-      toast.error("Wallet not connected!");
+    if (!smartAccountClient) {
+      toast.error("Smart Wallet not ready!");
       return;
     }
 
     try {
       setTxPending(true);
-      const provider = await currentWallet.getEthereumProvider();
-      const walletClient = createWalletClient({
-        account: currentWallet.address,
-        chain: activeChain,
-        transport: custom(provider),
-      });
 
       // Convert chars to bytes1 (e.g. "C" -> 0x43)
       const modHex = '0x' + inputMod.charCodeAt(0).toString(16).padStart(2, '0');
       const subHex = '0x' + inputSub.charCodeAt(0).toString(16).padStart(2, '0');
-
-      const hash = await walletClient.writeContract({
+      
+      const hash = await smartAccountClient.writeContract({
         address: CADE_TOKEN_ADDRESS,
         abi: cadeTokenArtifact.abi,
         functionName: 'setVibe',
@@ -388,7 +386,8 @@ function App() {
       setTimeout(() => fetchTokenBalances(), 3000);
     } catch (err) {
       console.error("Failed to set vibe:", err);
-      toast.error(`Failed: ${err.shortMessage || err.message}`);
+      const errorKey = err.cause?.name || err.name;
+      toast.error(`Failed: ${ERROR_MESSAGES[errorKey] || err.shortMessage || err.message}`);
     } finally {
       setTxPending(false);
     }
@@ -450,7 +449,7 @@ function App() {
               Login & Play
             </button>
           </div>
-        ) : !activeWallet?.address ? (
+        ) : !smartWalletAddress ? (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-xl">
             <h2 className="text-xl font-bold mb-4">You need a Wallet</h2>
             <p className="text-slate-400 text-sm mb-6">
@@ -471,9 +470,9 @@ function App() {
                 <span className="text-slate-400">Wallet</span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-indigo-300 font-semibold bg-slate-950 py-1 px-2.5 rounded border border-slate-800">
-                    {activeWallet?.address ? `${activeWallet.address.slice(0, 6)}...${activeWallet.address.slice(-4)}` : 'No Wallet'}
+                    {smartWalletAddress ? `${smartWalletAddress.slice(0, 6)}...${smartWalletAddress.slice(-4)}` : 'No Wallet'}
                   </span>
-                  {activeWallet?.address && (
+                  {smartWalletAddress && (
                     <button
                       onClick={handleCopyAddress}
                       className="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 px-2 py-1 rounded text-xs transition border border-indigo-500/30 cursor-pointer"

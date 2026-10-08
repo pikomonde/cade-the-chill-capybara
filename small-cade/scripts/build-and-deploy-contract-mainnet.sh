@@ -12,6 +12,10 @@ set +a
 
 forge build
 
+USDC_ADDRESS="${VITE_USDC_ADDRESS_MAINNET:-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913}"
+WETH_ADDRESS="${VITE_WETH_ADDRESS_MAINNET:-0x4200000000000000000000000000000000000006}"
+PERSONAL_WALLET=$(cast wallet address --private-key $PRIVATE_KEY)
+
 #================================ Deploying CadeToken ================================
 echo "🚀 Deploying CadeToken to Base Mainnet..."
 OUT=$(forge create src/CadeToken.sol:CadeToken --rpc-url $BASE_MAINNET_RPC_URL --private-key $PRIVATE_KEY --broadcast)
@@ -38,7 +42,7 @@ GAME_OUT=$(forge create src/GameGuessNumber.sol:GameGuessNumber \
   --rpc-url $BASE_MAINNET_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \
-  --constructor-args ${VITE_USDC_ADDRESS_MAINNET:-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913} $CADE_TOKEN $CADE_POINTS)
+  --constructor-args $USDC_ADDRESS $CADE_TOKEN $CADE_POINTS)
 
 # Extract the deployed address using awk
 GAME_ADDRESS=$(echo "$GAME_OUT" | awk '/Deployed to:/ {print $3}')
@@ -81,9 +85,6 @@ echo "✅ Paymaster Deployed to: $PAYMASTER_ADDRESS"
 echo ""
 echo "⏳ Waiting 3s for RPC nonce sync..."; sleep 3
 echo "🚀 Deploying Treasury to Base Mainnet..."
-USDC_ADDRESS="${VITE_USDC_ADDRESS_MAINNET:-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913}"
-WETH_ADDRESS="${VITE_WETH_ADDRESS_MAINNET:-0x4200000000000000000000000000000000000006}"
-PERSONAL_WALLET=$(cast wallet address --private-key $PRIVATE_KEY)
 
 TREASURY_OUT=$(forge create src/Treasury.sol:Treasury \
   --rpc-url $BASE_MAINNET_RPC_URL \
@@ -105,6 +106,18 @@ cast send $TREASURY_ADDRESS "setPaymaster(address)" $PAYMASTER_ADDRESS \
   --private-key $PRIVATE_KEY
 
 echo "   Waiting 3s for RPC sync..."; sleep 3
+echo "   Whitelisting CadeToken in Paymaster..."
+cast send $PAYMASTER_ADDRESS "addWhitelistedContract(address)" $CADE_TOKEN \
+  --rpc-url $BASE_MAINNET_RPC_URL \
+  --private-key $PRIVATE_KEY
+
+echo "   Waiting 3s for RPC sync..."; sleep 3
+echo "   Whitelisting USDC in Paymaster..."
+cast send $PAYMASTER_ADDRESS "addWhitelistedContract(address)" $USDC_ADDRESS \
+  --rpc-url $BASE_MAINNET_RPC_URL \
+  --private-key $PRIVATE_KEY
+
+echo "   Waiting 3s for RPC sync..."; sleep 3
 echo "   Whitelisting Treasury in Paymaster..."
 cast send $PAYMASTER_ADDRESS "addWhitelistedContract(address)" $TREASURY_ADDRESS \
   --rpc-url $BASE_MAINNET_RPC_URL \
@@ -119,6 +132,12 @@ cast send $PAYMASTER_ADDRESS "addWhitelistedContract(address)" $GAME_ADDRESS \
 echo "   Waiting 3s for RPC sync..."; sleep 3
 echo "   Setting Game Bank Account to Treasury..."
 cast send $GAME_ADDRESS "setBankAccountAddress(address)" $TREASURY_ADDRESS \
+  --rpc-url $BASE_MAINNET_RPC_URL \
+  --private-key $PRIVATE_KEY
+
+echo "   Waiting 3s for RPC sync..."; sleep 3
+echo "   Approving Game in Treasury..."
+cast send $TREASURY_ADDRESS "approveGame(address)" $GAME_ADDRESS \
   --rpc-url $BASE_MAINNET_RPC_URL \
   --private-key $PRIVATE_KEY
 
