@@ -203,6 +203,11 @@ contract Treasury {
         IERC20(cadeToken).approve(_game, type(uint256).max);
     }
 
+    // Revoke Game's allowance to pull CADE tokens
+    function revokeGame(address _game) external onlyOwner {
+        IERC20(cadeToken).approve(_game, 0);
+    }
+
     function setPaymaster(address _paymaster) external onlyOwner {
         paymasterAddress = _paymaster;
     }
