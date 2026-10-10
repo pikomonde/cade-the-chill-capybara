@@ -43,3 +43,19 @@ check-balance-cade-token-on-base-sepolia:
 # 	cast send 0xfd0Bf71F60660E2f608ed56e1659C450eB113120 "depositETH(uint32,bytes)" 200000 "0x" --value 0.001ether --rpc-url https://ethereum-sepolia-rpc.publicnode.com --private-key $$PRIVATE_KEY
 build-and-deploy-contract-sepolia:
 	bash scripts/build-and-deploy-contract-sepolia.sh
+activate-dex-sepolia:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_SEPOLIA "setDex(address)" $$VITE_UNISWAP_ROUTER_SEPOLIA --rpc-url https://sepolia.base.org --private-key $$PRIVATE_KEY && sleep 3 && \
+	cast send $$VITE_TREASURY_ADDRESS_SEPOLIA "setPercentages(uint256,uint256,uint256)" 40 60 0 --rpc-url https://sepolia.base.org --private-key $$PRIVATE_KEY
+activate-dex-swap-cade-sepolia:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_SEPOLIA "setPercentages(uint256,uint256,uint256)" 40 40 20 --rpc-url https://sepolia.base.org --private-key $$PRIVATE_KEY
+
+# ========== sepolia mainnet ==========
+activate-dex-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setDex(address)" $$VITE_UNISWAP_ROUTER_MAINNET --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY && sleep 3 && \
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setPercentages(uint256,uint256,uint256)" 40 60 0 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+activate-dex-swap-cade-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setPercentages(uint256,uint256,uint256)" 40 40 20 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY

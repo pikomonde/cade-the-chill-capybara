@@ -216,6 +216,11 @@ contract Treasury {
         replenishGasInterval = minutesInterval * 1 minutes;
     }
 
+    // Allow changing Uniswap pool fee (e.g., 500 = 0.05%, 3000 = 0.3%)
+    function setPoolFee(uint24 _fee) external onlyOwner {
+        poolFee = _fee;
+    }
+
     function setPercentages(uint256 _gas, uint256 _profit, uint256 _buyback) external onlyOwner {
         require(_gas + _profit + _buyback == 100, "Must sum to 100");
         gasPercentage = _gas;
