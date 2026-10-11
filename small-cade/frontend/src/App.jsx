@@ -3,7 +3,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { usePrivy, useWallets, useCreateWallet } from '@privy-io/react-auth';
 import { createPublicClient, http, parseAbiItem, parseAbi } from 'viem';
 import { defineChain } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { baseSepolia, base } from 'viem/chains';
 import gameArtifact from './GameGuessNumberABI.json';
 import cadeTokenArtifact from './CadeTokenABI.json';
 import { getSmartWalletClient } from './smartWalletClient.js';
@@ -28,28 +28,21 @@ const anvilChain = defineChain({
 });
 
 const isAnvil = import.meta.env.VITE_NETWORK === 'anvil';
-const activeChain = isAnvil ? anvilChain : baseSepolia;
+const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet';
+const activeChain = isAnvil ? anvilChain : (isMainnet ? base : baseSepolia);
 
-const CONTRACT_ADDRESS = isAnvil 
-  ? import.meta.env.VITE_GAME_GUESS_NUMBER_ADDRESS_ANVIL 
-  : import.meta.env.VITE_GAME_GUESS_NUMBER_ADDRESS_SEPOLIA;
+const getEnvVar = (name) => {
+  if (isAnvil) return import.meta.env[`VITE_${name}_ANVIL`];
+  if (isMainnet) return import.meta.env[`VITE_${name}_MAINNET`];
+  return import.meta.env[`VITE_${name}_SEPOLIA`];
+};
+
+const CONTRACT_ADDRESS = getEnvVar('GAME_GUESS_NUMBER_ADDRESS');
 const CONTRACT_ABI = gameArtifact.abi;
-
-const USDC_ADDRESS = isAnvil 
-  ? import.meta.env.VITE_USDC_ADDRESS_ANVIL 
-  : import.meta.env.VITE_USDC_ADDRESS_SEPOLIA;
-
-const CADE_TOKEN_ADDRESS = isAnvil 
-  ? import.meta.env.VITE_CADE_TOKEN_ADDRESS_ANVIL 
-  : import.meta.env.VITE_CADE_TOKEN_ADDRESS_SEPOLIA;
-
-const CADE_POINTS_ADDRESS = isAnvil 
-  ? import.meta.env.VITE_CADE_POINTS_ADDRESS_ANVIL 
-  : import.meta.env.VITE_CADE_POINTS_ADDRESS_SEPOLIA;
-
-const PAYMASTER_ADDRESS = isAnvil 
-  ? import.meta.env.VITE_PAYMASTER_ADDRESS_ANVIL 
-  : import.meta.env.VITE_PAYMASTER_ADDRESS_SEPOLIA;
+const USDC_ADDRESS = getEnvVar('USDC_ADDRESS');
+const CADE_TOKEN_ADDRESS = getEnvVar('CADE_TOKEN_ADDRESS');
+const CADE_POINTS_ADDRESS = getEnvVar('CADE_POINTS_ADDRESS');
+const PAYMASTER_ADDRESS = getEnvVar('PAYMASTER_ADDRESS');
 
 const ERC20_ABI = parseAbi([
   'function allowance(address owner, address spender) view returns (uint256)',
@@ -83,6 +76,7 @@ function App() {
   const [smartAccountClient, setSmartAccountClient] = useState(null);
 
   // Token Balances
+  const [usdcBalance, setUsdcBalance] = useState('0');
   const [cadeBalance, setCadeBalance] = useState('0');
   const [cadePtBalance, setCadePtBalance] = useState('0');
 
@@ -121,6 +115,16 @@ function App() {
   const fetchTokenBalances = async () => {
     if (!smartWalletAddress) return;
     try {
+      if (USDC_ADDRESS && USDC_ADDRESS !== '') {
+        const usdcBal = await publicClient.readContract({
+          address: USDC_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [smartWalletAddress],
+        });
+        setUsdcBalance((Number(usdcBal) / 10**6).toFixed(2));
+      }
+
       if (CADE_TOKEN_ADDRESS && CADE_TOKEN_ADDRESS !== '') {
         const cadeBal = await publicClient.readContract({
           address: CADE_TOKEN_ADDRESS,
@@ -193,7 +197,7 @@ function App() {
 
       // Fetch History via Events
       const currentBlock = await publicClient.getBlockNumber();
-      const fromBlock = currentBlock > 499n ? currentBlock - 499n : 0n;
+      const fromBlock = currentBlock > 199n ? currentBlock - 199n : 0n;
 
       const logs = await publicClient.getLogs({
         address: CONTRACT_ADDRESS,
@@ -322,6 +326,11 @@ function App() {
 
   // Transaction 1: Submit Guess / Enter Game
   const handleSubmitGuess = async () => {
+    if (Number(usdcBalance) < 0.1) {
+      toast.error(`Insufficient USDC! You have ${usdcBalance} USDC, but need at least 0.1 USDC to play.`);
+      return;
+    }
+
     if (!guessInput || guessInput < 0 || guessInput > 99) {
       toast.error("Please enter a number between 0 and 99!");
       return;
@@ -483,6 +492,12 @@ function App() {
                 </div>
               </div>
               <div className="flex items-center justify-between">
+                <span className="text-slate-400">USDC Balance:</span>
+                <span className={`font-bold ${Number(usdcBalance) < 0.1 ? 'text-rose-400' : 'text-blue-400'}`}>
+                  {usdcBalance} USDC {Number(usdcBalance) < 0.1 && <span className="text-[10px] font-medium text-rose-300 ml-1 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Min: 0.1</span>}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-slate-400">CADE Token:</span>
                 <span className="font-bold text-amber-400">{cadeBalance} CADE</span>
               </div>
@@ -601,6 +616,19 @@ function App() {
                     <label className="text-xs font-semibold text-slate-300">
                       Guess (0 - 99) • Entry: 0.1 USDC • Cashback: 100 CADE
                     </label>
+
+                    {Number(usdcBalance) < 0.1 && (
+                      <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-300 flex items-center justify-between gap-2">
+                        <span>⚠️ Need at least 0.1 USDC (Balance: {usdcBalance} USDC)</span>
+                        <button
+                          onClick={handleCopyAddress}
+                          className="bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition cursor-pointer"
+                        >
+                          {copied ? '✓ Copied' : '📋 Copy Smart Wallet'}
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex gap-2">
                       <input
                         type="number"
@@ -608,14 +636,14 @@ function App() {
                         max="99"
                         value={guessInput}
                         onChange={(e) => setGuessInput(e.target.value)}
-                        disabled={txPending}
+                        disabled={txPending || Number(usdcBalance) < 0.1}
                         placeholder="e.g. 42"
                         className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg font-bold text-white focus:outline-none focus:border-indigo-500 transition disabled:opacity-50"
                       />
                       {hasAllowance ? (
                         <button
                           onClick={handleSubmitGuess}
-                          disabled={!guessInput || txPending || !wallets[0]}
+                          disabled={!guessInput || txPending || !wallets[0] || Number(usdcBalance) < 0.1}
                           className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {txPending ? 'Sending...' : "I'm feeling lucky"}

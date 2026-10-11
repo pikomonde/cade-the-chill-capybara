@@ -59,7 +59,8 @@ contract Treasury {
     uint256 public buybackPercentage = 20;
     
     // Pool Fee (Uniswap usually 0.3% -> 3000)
-    uint24 public poolFee = 3000; 
+    uint24 public poolFeeWeth = 3000;
+    uint24 public poolFeeCade = 3000; 
 
     event DexActivated(address router);
     event GasReplenished(address caller, uint256 usdcSwapped, uint256 ethDeposited);
@@ -143,11 +144,11 @@ contract Treasury {
         }
 
         // 2. Swap for Gas (USDC -> WETH -> ETH -> EntryPoint)
-        if (gasAmount > 0 && paymasterAddress != address(0) && dexRouterAddress != address(0)) {
+        if (gasAmount > 0 && paymasterAddress != address(0) && dexRouterAddress != address(0) && poolFeeWeth > 0) {
             ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
                 tokenIn: usdcToken,
                 tokenOut: wethToken,
-                fee: poolFee,
+                fee: poolFeeWeth,
                 recipient: address(this), // Receive WETH to this treasury
                 deadline: block.timestamp,
                 amountIn: gasAmount,
@@ -166,11 +167,11 @@ contract Treasury {
         }
 
         // 3. Swap for Buyback (USDC -> CADE)
-        if (buybackAmount > 0 && dexRouterAddress != address(0)) {
+        if (buybackAmount > 0 && dexRouterAddress != address(0) && poolFeeCade > 0) {
             ISwapRouter.ExactInputSingleParams memory paramsCade = ISwapRouter.ExactInputSingleParams({
                 tokenIn: usdcToken,
                 tokenOut: cadeToken,
-                fee: poolFee,
+                fee: poolFeeCade,
                 recipient: address(this), // CADE stays in Treasury!
                 deadline: block.timestamp,
                 amountIn: buybackAmount,
@@ -217,8 +218,9 @@ contract Treasury {
     }
 
     // Allow changing Uniswap pool fee (e.g., 500 = 0.05%, 3000 = 0.3%)
-    function setPoolFee(uint24 _fee) external onlyOwner {
-        poolFee = _fee;
+    function setPoolFees(uint24 _feeWeth, uint24 _feeCade) external onlyOwner {
+        poolFeeWeth = _feeWeth;
+        poolFeeCade = _feeCade;
     }
 
     function setPercentages(uint256 _gas, uint256 _profit, uint256 _buyback) external onlyOwner {
