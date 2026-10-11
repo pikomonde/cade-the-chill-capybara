@@ -181,3 +181,25 @@ Unlike Uniswap where anyone can deposit tokens into a pool permissionlessly, CEX
 - **Token Budget**: **250,000,000 CADE** (Dedicated CEX & Market Making Reserve).
 - **Cash Capital Required**: $30,000 – $60,000 USDT/USDC (funded from accumulated game profits).
 - **Rule of Thumb**: **Never rush to CEX.** A strong, viral meme game with deep Uniswap liquidity on Base will naturally attract CEX listing managers for free or heavily discounted rates.
+
+---
+
+## 6. Actionable Next Steps (TODO Roadmap)
+
+Below is the concrete roadmap to take the project from current stage to live Mainnet production and marketing:
+
+- [ ] **1. Deploy to Base Mainnet**:
+  - Deploy contracts to Base using the standard deployer EOA wallet (`PRIVATE_KEY`).
+  - Whitelist Game in Paymaster and approve Treasury & CadePoints permissions.
+- [ ] **2. Setup Safe Multi-Sig (Optional but Recommended)**:
+  - Create a Multi-sig Safe wallet on Base (`https://app.safe.global`).
+  - Transfer ownership of contracts (`CadeToken`, `CadePoints`, `Treasury`, `CustomWhitelistPaymaster`, `GameGuessNumber`) to the Safe address.
+- [ ] **3. Build & Launch Telegram Mini App (TMA)**:
+  - Deploy frontend to GitHub Pages or Netlify.
+  - Setup Telegram Bot via `@BotFather` and link the web app URL.
+  - Create official Telegram Community Group.
+- [ ] **4. Publish Lightweight Docs / Litepaper**:
+  - Add a concise "How it Works" / "Tokenomics" page or diagram on the website or GitBook.
+- [ ] **5. Launch Marketing Campaign**:
+  - Broadcast to **Farcaster** (Channels: `/base`, `/memes`, `/degen`) and **Twitter/X**.
+  - Emphasize the **100% Gasless experience** (via Custom Paymaster) with only 0.1 USDC entry fee.

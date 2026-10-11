@@ -170,6 +170,14 @@ contract GameGuessNumber {
         _;
     }
 
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), UnauthorizedAccess());
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
     // Stop people from playing
     function shutdownGame() external onlyOwner {
         isGameActive = false;
