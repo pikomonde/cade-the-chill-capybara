@@ -1,0 +1,65 @@
+name: Deploy Frontend to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "small-cade/frontend/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: small-cade/frontend
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: small-cade/frontend/package.json
+
+      - name: Prepare Environment File
+        run: |
+          if [ -n "${{ secrets.FRONTEND_ENV }}" ]; then
+            echo "${{ secrets.FRONTEND_ENV }}" > .env
+          elif [ -f "env.public" ]; then
+            cp env.public .env
+          fi
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Static App with Vite
+        run: npm run build
+
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: small-cade/frontend/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
