@@ -21,17 +21,42 @@ The project operates across three environments. Due to infrastructure limitation
 
 ---
 
-## 2. The Evolution of Gas & DEX Logic
+## 2. Tokenomics & The Evolution of Gas/DEX Logic
 
-The ecosystem's economy is designed to evolve in phases. The Treasury contract manages the flow of USDC (from gameplay) and converts it into ETH (for gas) and CADE (for player cashback buybacks).
+The ecosystem's economy is designed to evolve in phases to protect developer capital and achieve self-sustainability through gameplay revenue.
 
-### Economic Phases
+### Token Supply Allocation (Total: 1,773,420,888 CADE)
+- **1,000,000,000 CADE (~56.4%) ➔ Treasury Contract**: Dedicated purely as player cashback reserves for the game.
+- **500,000,000 CADE (~28.2%) ➔ Initial DEX Liquidity Pool Reserve**: Held by Deployer until Phase 3 pool activation (paired with $50k USDC).
+- **250,000,000 CADE (~14.1%) ➔ CEX Listings & Market Making (MM) Reserve**: Dedicated inventory for centralized exchange orderbook depth.
+- **23,420,888 CADE (~1.3%) ➔ Community Airdrops, Quests, & Team Reserve**: Miscellaneous buffer.
 
-| Phase | Architecture State | Gas Payment Mechanism | DEX Interaction |
+---
+
+### Economic Phases & Rollout Strategy
+
+| Phase | Architecture State | Treasury Splits (Gas / Profit / Buyback) | DEX / Liquidity Pool Status |
 | :--- | :--- | :--- | :--- |
-| **Phase 1** | No Paymaster / Local | Player's EOA wallet pays ETH for gas. | None. |
-| **Phase 2** | Paymaster + Treasury (DEX Partial) | Paymaster sponsors gas. Treasury converts `USDC -> WETH -> ETH` via DEX to refill Paymaster. | `USDC -> WETH` only. *(CADE buyback disabled via percentages)*. |
-| **Phase 3** | Full Ecosystem | Paymaster sponsors gas. Treasury converts USDC to ETH (for gas) and USDC to CADE (for cashback). | `USDC -> WETH` AND `USDC -> CADE`. |
+| **Phase 1** | Local / Initial Dev | N/A | None. |
+| **Phase 2** | Game Live (Zero-Risk Bootstrap) | **40% Gas / 60% Profit / 0% Buyback** | **NO CADE POOL YET.** Players accumulate CADE cashback as on-chain prestige/vibe. Treasury collects 100% of game USDC entry fees. |
+| **Phase 3** | Full DEX Ecosystem | **40% Gas / 40% Profit / 20% Buyback** | **Uniswap V3 Pool Active** (500M CADE + $50k USDC). Treasury auto-buys CADE via `replenishGas()`. |
+
+### 🚀 Phase 3 Activation Threshold ($150,000 USDC Milestone)
+To prevent personal capital loss ("boncos"), the initial DEX liquidity pool is **NOT** funded from personal savings. Instead, it is funded organically from gameplay revenue:
+
+1. **Revenue Accumulation in Phase 2**: The game runs with splits configured to `40% Gas, 60% Profit, 0% Buyback`.
+2. **The $150k Profit Target**: Developer profit accumulates until net profits reach **$150,000 USDC** in `personalWallet`.
+3. **Seeding the Pool**: Exactly **$50,000 USDC** (representing 1/3 of the 60% accumulated profit, or 20% of total revenue) is paired with the reserved **500,000,000 CADE** to deploy the primary Uniswap V3 Pool:
+   - **Initial Pair**: 500,000,000 CADE + $50,000 USDC.
+   - **Initial Price**: **$0.0001 per CADE** ($50,000 / 500,000,000).
+   - **Initial Market Cap (FDV)**: **~$177,342 USD**.
+   - **Total Pool TVL**: **$100,000 USD** ($50k USDC + $50k CADE).
+   - **Cashback Valuation**: 100 CADE cashback = **$0.01 USDC** (10% rebate on the 0.1 USDC entry fee).
+4. **Transition to 40/40/20**: Once the pool is live on Uniswap, call:
+   ```bash
+   cast send <TREASURY> "setPercentages(uint256,uint256,uint256)" 40 40 20
+   ```
+   Now, 20% of all future gameplay fees directly buy back CADE from the market!
 
 > **💡 AI Developer Note (How DEX logic is triggered)**: 
 > In `Treasury.sol`, the function `replenishGas()` will completely revert if `dexRouterAddress == address(0)`.
@@ -39,10 +64,10 @@ The ecosystem's economy is designed to evolve in phases. The Treasury contract m
 > To enable DEX operations, you MUST call:
 > `cast send <TREASURY> "setDex(address)" <UNISWAP_ROUTER>`
 >
-> If you want to run **Phase 2** (Skip CADE buyback but keep USDC->ETH), set the percentages so buyback is `0`: 
-> `cast send <TREASURY> "setPercentages(uint256,uint256,uint256)" 60 40 0`
+> If you want to run **Phase 2** (Keep 60% profit, 0% buyback): 
+> `cast send <TREASURY> "setPercentages(uint256,uint256,uint256)" 40 60 0`
 > 
-> If you want to run **Phase 3** (Enable CADE buyback), configure normal splits (e.g., 40% Gas, 40% Profit, 20% Buyback):
+> If you want to run **Phase 3** (Enable CADE buyback after $75k milestone):
 > `cast send <TREASURY> "setPercentages(uint256,uint256,uint256)" 40 40 20`
 
 ---
@@ -123,5 +148,36 @@ When ready to activate Phase 2 or Phase 3:
    ```bash
    cast send <TREASURY_ADDRESS> "setDex(address)" 0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4 --rpc-url <RPC> --private-key <PRIVATE_KEY>
    ```
-3. **Configure Splits**: Ensure Treasury percentages are set correctly (e.g., `setPercentages(60, 40, 0)` if CADE LP is not ready).
+3. **Configure Splits**: Ensure Treasury percentages are set correctly (e.g., `setPercentages(40, 60, 0)` if CADE LP is not ready).
 4. Anyone can now call `replenishGas()` on the Treasury!
+
+---
+
+## 5. CEX (Centralized Exchange) Expansion Roadmap & Requirements
+
+When the project scales beyond Uniswap DEX and targets Centralized Exchanges (e.g., MEXC, Gate.io, Bitget, KuCoin, Bybit), the operational model shifts from Automated Market Maker (AMM) pools to centralized Order Books.
+
+### What is Required for a CEX Listing?
+
+Unlike Uniswap where anyone can deposit tokens into a pool permissionlessly, CEX listings require:
+1. **Exchange Listing Agreement & Fees**:
+   - **Tier 3 / Tier 2 (MEXC, CoinEx, Bitget, Gate.io)**: 
+     - Listing fee typically ranges from **$10,000 to $40,000 USDT** (or free if organic DEX trading volume and holder count are exceptionally high).
+     - Security deposit / marketing budget: **$5,000 – $10,000 USDT** for airdrops/trading competitions.
+   - **Tier 1 (Bybit, OKX, Binance, Coinbase)**:
+     - Zero listing fee for genuine community tokens, but strictly requires sustained multi-million dollar daily volume and massive active user bases.
+2. **Order Book Liquidity & Market Maker (MM)**:
+   - CEXs do not run AMM pools. They use central limit order books (CLOB) where buyers and sellers meet.
+   - To prevent an empty orderbook, extreme spread, or instant price crashing, projects must partner with a **Market Maker (MM)** (e.g., Kairon Labs, CLS, or self-managed MM bot).
+   - **CADE Token Deposit for MM**: Around **5% – 10% of total supply (~90,000,000 – 177,000,000 CADE)** loaned/deposited to the MM account to place sell orders above market price.
+   - **USDT / USDC Capital for MM**: **$20,000 – $50,000 USDT/USDC** placed on the exchange to maintain buy orders (bid depth) and support market liquidity.
+3. **Prerequisites Before Applying to CEXs**:
+   - **DEX Daily Volume**: Minimum **$100,000 – $300,000 / day** sustained on Uniswap.
+   - **Holder Count**: At least **2,000 – 5,000+ active on-chain holders** on Base.
+   - **Social Activity**: Active engagement on Telegram, X/Twitter, and Farcaster.
+   - **Audited Contracts**: Verified and audited smart contracts on BaseScan.
+
+### Summary: CEX Capital & Token Budgeting
+- **Token Budget**: **250,000,000 CADE** (Dedicated CEX & Market Making Reserve).
+- **Cash Capital Required**: $30,000 – $60,000 USDT/USDC (funded from accumulated game profits).
+- **Rule of Thumb**: **Never rush to CEX.** A strong, viral meme game with deep Uniswap liquidity on Base will naturally attract CEX listing managers for free or heavily discounted rates.
