@@ -427,9 +427,9 @@ function App() {
         },
       }} />
       <header className="w-full max-w-md flex items-center justify-between py-3 border-b border-slate-800 mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🦫</span>
-          <h1 className="font-extrabold text-lg text-indigo-400">Small-Cade</h1>
+        <div className="flex items-center gap-2.5">
+          <img src="./favicon.svg" alt="Cade" className="w-8 h-8 rounded-full shadow-md" />
+          <h1 className="font-extrabold text-lg text-indigo-400 tracking-tight">Cade <span className="text-xs text-slate-500 font-normal">the Chill Capybara</span></h1>
         </div>
         {authenticated && (
           <button
