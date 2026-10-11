@@ -6,12 +6,4 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
-  build: {
-    rollupOptions: {
-      external: [/^ox(\/.*)?$/],
-    },
-    rolldownOptions: {
-      external: [/^ox(\/.*)?$/],
-    },
-  },
 })

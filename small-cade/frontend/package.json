@@ -12,6 +12,7 @@
   "dependencies": {
     "@privy-io/react-auth": "^3.42.0",
     "@stripe/stripe-js": "^1.54.2",
+    "ox": "^0.8.9",
     "permissionless": "^0.2.57",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
