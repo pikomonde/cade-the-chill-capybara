@@ -29,7 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <PrivyProvider
       appId={PRIVY_APP_ID}
       config={{
-        loginMethods: ['email', 'wallet'],
+        loginMethods: ['email', 'wallet', 'telegram'],
         // loginMethods: ['email', 'wallet', 'google', 'telegram'],
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
