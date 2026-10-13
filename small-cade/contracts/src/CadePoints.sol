@@ -10,6 +10,7 @@ contract CadePoints is ERC20, Ownable {
 
     error TransferNotAllowed();
     error OnlyGameContractCanMint();
+    error OnlyGameContractCanBurn();
 
     constructor() ERC20("Cade Points", "CADE-PT") Ownable(msg.sender) {}
 
@@ -27,6 +28,12 @@ contract CadePoints is ERC20, Ownable {
     function mint(address to, uint256 amount) external {
         require(isGameContract[msg.sender], OnlyGameContractCanMint());
         _mint(to, amount);
+    }
+
+    // Only authorized Game/Shop contracts can burn points from a player
+    function burnFromGame(address from, uint256 amount) external {
+        require(isGameContract[msg.sender], OnlyGameContractCanBurn());
+        _burn(from, amount);
     }
 
     // DISABLE TRANSFER FUNCTION (Soulbound Mechanism)
