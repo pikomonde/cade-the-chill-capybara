@@ -7,6 +7,7 @@ import { baseSepolia, base } from 'viem/chains';
 import gameArtifact from './GameGuessNumberABI.json';
 import cadeTokenArtifact from './CadeTokenABI.json';
 import { getSmartWalletClient } from './smartWalletClient.js';
+import sdk from '@farcaster/frame-sdk';
 
 const ERROR_MESSAGES = {
   GameIsShutdown: "Game is currently shutdown/paused!",
@@ -87,6 +88,19 @@ function App() {
   const [inputMod, setInputMod] = useState('C');
   const [inputSub, setInputSub] = useState('C');
   const [inputCustomText, setInputCustomText] = useState('');
+
+  useEffect(() => {
+    // Notify Farcaster Frame v2 host that the Mini App is ready to display
+    const initFarcasterFrame = async () => {
+      try {
+        await sdk.actions.ready();
+      } catch (e) {
+        // Safely ignore if not running inside a Farcaster client
+        console.debug("Not in Farcaster Frame context:", e);
+      }
+    };
+    initFarcasterFrame();
+  }, []);
 
   useEffect(() => {
     const initSmartWallet = async () => {
