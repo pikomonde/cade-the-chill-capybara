@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@farcaster/frame-sdk": "^0.2.0",
-    "@privy-io/react-auth": "^3.42.0",
     "@stripe/stripe-js": "^1.54.2",
     "ox": "^0.8.9",
     "permissionless": "^0.2.57",

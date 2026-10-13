@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
-import { usePrivy, useWallets, useCreateWallet } from '@privy-io/react-auth';
 import { createPublicClient, http, parseAbiItem, parseAbi } from 'viem';
 import { defineChain } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 import gameArtifact from './GameGuessNumberABI.json';
 import cadeTokenArtifact from './CadeTokenABI.json';
 import { getSmartWalletClient } from './smartWalletClient.js';
+import { getOrCreatePrivateKey, saveCustomPrivateKey, clearStoredPrivateKey } from './walletStorage.js';
 import sdk from '@farcaster/frame-sdk';
 
 const ERROR_MESSAGES = {
@@ -57,11 +57,18 @@ const publicClient = createPublicClient({
 });
 
 function App() {
-  const { login, logout, authenticated, ready } = usePrivy();
-  const { wallets } = useWallets();
-  const { createWallet } = useCreateWallet();
+  // Native Zero-Privy Wallet State
+  const [privateKey, setPrivateKey] = useState(null);
+  const [eoaAddress, setEoaAddress] = useState(null);
+  const [smartWalletAddress, setSmartWalletAddress] = useState(null);
+  const [smartAccountClient, setSmartAccountClient] = useState(null);
+  const [isWalletReady, setIsWalletReady] = useState(false);
+  const [keySource, setKeySource] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [importInput, setImportInput] = useState('');
+  const [showImportBox, setShowImportBox] = useState(false);
+
   const [guessInput, setGuessInput] = useState('');
-  
   const [roundEndTime, setRoundEndTime] = useState(0);
   const [playersList, setPlayersList] = useState([]);
   const [historyList, setHistoryList] = useState([]);
@@ -73,8 +80,6 @@ function App() {
 
   const [hasAllowance, setHasAllowance] = useState(false);
   const [activeTab, setActiveTab] = useState('game'); // 'game' or 'profile'
-  const [smartWalletAddress, setSmartWalletAddress] = useState(null);
-  const [smartAccountClient, setSmartAccountClient] = useState(null);
 
   // Token Balances
   const [usdcBalance, setUsdcBalance] = useState('0');
@@ -89,6 +94,7 @@ function App() {
   const [inputSub, setInputSub] = useState('C');
   const [inputCustomText, setInputCustomText] = useState('');
 
+  // 1. Initialize Farcaster Frame v2
   useEffect(() => {
     // Notify Farcaster Frame v2 host that the Mini App is ready to display
     const initFarcasterFrame = async () => {
@@ -102,21 +108,60 @@ function App() {
     initFarcasterFrame();
   }, []);
 
-  useEffect(() => {
-    const initSmartWallet = async () => {
-      if (wallets[0]) {
-        try {
-          const client = await getSmartWalletClient(wallets[0], activeChain, PAYMASTER_ADDRESS);
-          setSmartAccountClient(client);
-          setSmartWalletAddress(client.account.address);
-        } catch (e) {
-          console.error("Failed to init smart wallet", e);
-        }
+  // 2. Initialize Native Wallet (Telegram CloudStorage / LocalStorage / Imported)
+  const initWallet = async (overrideKey = null) => {
+    try {
+      let keyData;
+      if (overrideKey) {
+        const formattedKey = await saveCustomPrivateKey(overrideKey);
+        keyData = { key: formattedKey, isNew: false, source: 'imported' };
+      } else {
+        keyData = await getOrCreatePrivateKey();
       }
-    };
-    initSmartWallet();
-  }, [wallets[0]?.address]);
 
+      setPrivateKey(keyData.key);
+      setKeySource(keyData.source);
+
+      const { smartAccountClient: client, ownerAccount, smartWalletAddress: swAddr } = 
+        await getSmartWalletClient(keyData.key, activeChain, PAYMASTER_ADDRESS);
+
+      setSmartAccountClient(client);
+      setEoaAddress(ownerAccount.address);
+      setSmartWalletAddress(swAddr);
+      setIsWalletReady(true);
+      return { client, ownerAccount, swAddr };
+    } catch (err) {
+      console.error("Failed to init smart wallet:", err);
+      toast.error("Wallet error: " + (err.shortMessage || err.message));
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const keyData = await getOrCreatePrivateKey();
+        if (!active) return;
+        setPrivateKey(keyData.key);
+        setKeySource(keyData.source);
+
+        const { smartAccountClient: client, ownerAccount, smartWalletAddress: swAddr } = 
+          await getSmartWalletClient(keyData.key, activeChain, PAYMASTER_ADDRESS);
+
+        if (!active) return;
+        setSmartAccountClient(client);
+        setEoaAddress(ownerAccount.address);
+        setSmartWalletAddress(swAddr);
+        setIsWalletReady(true);
+      } catch (err) {
+        console.error("Failed to init smart wallet:", err);
+        if (active) toast.error("Wallet error: " + (err.shortMessage || err.message));
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleCopyAddress = () => {
     if (smartWalletAddress) {
@@ -126,9 +171,40 @@ function App() {
     }
   };
 
+  const handleCopyKey = () => {
+    if (privateKey) {
+      navigator.clipboard.writeText(privateKey);
+      toast.success("Secret Key copied to clipboard! Keep it safe.");
+    }
+  };
+
+  const handleImportKey = async () => {
+    if (!importInput.trim()) {
+      toast.error("Please enter a private key.");
+      return;
+    }
+    try {
+      await initWallet(importInput.trim());
+      setImportInput('');
+      setShowImportBox(false);
+      toast.success("Successfully switched wallet!");
+    } catch (e) {
+      toast.error("Failed to import key: " + e.message);
+    }
+  };
+
+  const handleResetWallet = async () => {
+    if (window.confirm("Make sure you have copied your Secret Key first, or your funds will be lost! Generate a new wallet?")) {
+      await clearStoredPrivateKey();
+      await initWallet();
+      toast.success("Generated fresh wallet!");
+    }
+  };
+
   const fetchTokenBalances = async () => {
     if (!smartWalletAddress) return;
     try {
+      // 1. USDC Balance (6 decimals)
       if (USDC_ADDRESS && USDC_ADDRESS !== '') {
         const usdcBal = await publicClient.readContract({
           address: USDC_ADDRESS,
@@ -139,6 +215,7 @@ function App() {
         setUsdcBalance((Number(usdcBal) / 10**6).toFixed(2));
       }
 
+      // 2. CADE Token Balance (18 decimals)
       if (CADE_TOKEN_ADDRESS && CADE_TOKEN_ADDRESS !== '') {
         const cadeBal = await publicClient.readContract({
           address: CADE_TOKEN_ADDRESS,
@@ -147,38 +224,42 @@ function App() {
           args: [smartWalletAddress],
         });
         setCadeBalance((Number(cadeBal) / 10**18).toFixed(2));
-  
-        // Fetch Vibe
-        const checkResult = await publicClient.readContract({
-          address: CADE_TOKEN_ADDRESS,
-          abi: cadeTokenArtifact.abi,
-          functionName: 'vibeCheck',
-          args: [smartWalletAddress],
-        });
-        setVibeStatus(checkResult);
-  
-        const vibeData = await publicClient.readContract({
-          address: CADE_TOKEN_ADDRESS,
-          abi: cadeTokenArtifact.abi,
-          functionName: 'getVibe',
-          args: [smartWalletAddress],
-        });
-        setVibeCombo(vibeData[0]);
-        setVibeText(vibeData[1]);
+
+        // Read Vibe Status & Identity
+        try {
+          const status = await publicClient.readContract({
+            address: CADE_TOKEN_ADDRESS,
+            abi: cadeTokenArtifact.abi,
+            functionName: 'vibeCheck',
+            args: [smartWalletAddress],
+          });
+          setVibeStatus(status);
+
+          const [combo, customTxt] = await publicClient.readContract({
+            address: CADE_TOKEN_ADDRESS,
+            abi: cadeTokenArtifact.abi,
+            functionName: 'getVibe',
+            args: [smartWalletAddress],
+          });
+          setVibeCombo(combo || 'Default Capybara');
+          setVibeText(customTxt || '');
+        } catch (vibeErr) {
+          console.error("Failed to read vibe:", vibeErr);
+        }
       }
 
+      // 3. CADE Points Balance (18 decimals)
       if (CADE_POINTS_ADDRESS && CADE_POINTS_ADDRESS !== '') {
-        const ptBal = await publicClient.readContract({
+        const cadePtBal = await publicClient.readContract({
           address: CADE_POINTS_ADDRESS,
           abi: ERC20_ABI,
           functionName: 'balanceOf',
           args: [smartWalletAddress],
         });
-        setCadePtBalance((Number(ptBal) / 10**18).toFixed(2));
+        setCadePtBalance((Number(cadePtBal) / 10**18).toFixed(2));
       }
-      
     } catch (err) {
-      console.error("Failed to fetch balances or vibes:", err);
+      console.error("Failed to read token balances:", err);
     }
   };
 
@@ -196,7 +277,7 @@ function App() {
         abi: CONTRACT_ABI,
         functionName: 'getGuessesCount',
       });
-
+      
       const players = [];
       for (let i = 0; i < Number(guessesCount); i++) {
         const guessEntry = await publicClient.readContract({
@@ -420,13 +501,13 @@ function App() {
   const MODIFIERS = ["Angry", "Blue", "Chill", "Dope", "Epic", "Fast", "Golden", "Happy", "Icy", "Jolly", "Kind", "Lucky", "Mad", "Nice", "Old", "Poor", "Quick", "Red", "Silver", "Tall", "Ugly", "Vast", "Wild", "Xenon", "Yellow", "Zen"];
   const SUBJECTS = ["Ant", "Bear", "Capybara", "Dog", "Eagle", "Frog", "Goat", "Hawk", "Iguana", "Jaguar", "Koala", "Lion", "Mamba", "Newt", "Owl", "Panda", "Quail", "Rat", "Shark", "Tiger", "Unicorn", "Viper", "Whale", "X-Ray", "Yak", "Zebra"];
 
-
   // Transaction 2: Resolve Round
-
-  if (!ready) {
+  if (!isWalletReady) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-        <p className="animate-pulse font-medium text-slate-400">Loading Small-Cade...</p>
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-4">
+        <img src="./favicon.svg" alt="Cade" className="w-16 h-16 animate-bounce" />
+        <p className="font-semibold text-slate-300">Waking up Cade & your wallet...</p>
+        <p className="text-xs text-slate-500">100% serverless, zero-gas on Base</p>
       </div>
     );
   }
@@ -445,305 +526,346 @@ function App() {
           <img src="./favicon.svg" alt="Cade" className="w-8 h-8 rounded-full shadow-md" />
           <h1 className="font-extrabold text-lg text-indigo-400 tracking-tight">Cade <span className="text-xs text-slate-500 font-normal">the Chill Capybara</span></h1>
         </div>
-        {authenticated && (
-          <button
-            onClick={logout}
-            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-1.5 px-3 rounded-lg border border-slate-700 transition cursor-pointer"
-          >
-            Logout
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono bg-slate-900 border border-slate-800 text-emerald-400 py-1 px-2.5 rounded-lg flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            {keySource === 'telegram_cloud' ? '☁️ TG Cloud' : keySource === 'imported' ? '📥 Imported' : '📱 Local'}
+          </span>
+        </div>
       </header>
 
       <main className="w-full max-w-md flex flex-col gap-5">
-        {!authenticated ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-xl">
-            <div className="w-16 h-16 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl border border-indigo-500/20">
-              🎯
+        {/* User Wallet Info & Balances */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 text-sm flex flex-col gap-3">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <span className="text-slate-400">Smart Wallet</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-indigo-300 font-semibold bg-slate-950 py-1 px-2.5 rounded border border-slate-800">
+                {smartWalletAddress ? `${smartWalletAddress.slice(0, 6)}...${smartWalletAddress.slice(-4)}` : 'Loading...'}
+              </span>
+              {smartWalletAddress && (
+                <button
+                  onClick={handleCopyAddress}
+                  className="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 px-2 py-1 rounded text-xs transition border border-indigo-500/30 cursor-pointer"
+                >
+                  {copied ? '✓ Copied!' : '📋 Copy'}
+                </button>
+              )}
             </div>
-            <h2 className="text-xl font-bold mb-2">Chill Capybara Guess Number Game</h2>
-            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-              Guess a number from 0-99. Entry is 0.1 USDC. Get 100 CADE cashback per play! The closest guess wins Cade Points (CADE-PT) pot prize!
-            </p>
-            <button
-              onClick={login}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 px-6 rounded-xl transition shadow-lg shadow-indigo-600/25 cursor-pointer"
-            >
-              Login & Play
-            </button>
           </div>
-        ) : !smartWalletAddress ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-xl">
-            <h2 className="text-xl font-bold mb-4">You need a Wallet</h2>
-            <p className="text-slate-400 text-sm mb-6">
-              It looks like you logged in without a wallet. Please create an embedded wallet to play.
-            </p>
-            <button
-              onClick={createWallet}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-xl transition shadow-lg cursor-pointer"
-            >
-              Create Embedded Wallet
-            </button>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400">USDC Balance:</span>
+            <span className={`font-bold ${Number(usdcBalance) < 0.1 ? 'text-rose-400' : 'text-blue-400'}`}>
+              {usdcBalance} USDC {Number(usdcBalance) < 0.1 && <span className="text-[10px] font-medium text-rose-300 ml-1 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Min: 0.1</span>}
+            </span>
           </div>
-        ) : (
-          <>
-            {/* User Wallet Info & Balances */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 text-sm flex flex-col gap-3">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <span className="text-slate-400">Wallet</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-indigo-300 font-semibold bg-slate-950 py-1 px-2.5 rounded border border-slate-800">
-                    {smartWalletAddress ? `${smartWalletAddress.slice(0, 6)}...${smartWalletAddress.slice(-4)}` : 'No Wallet'}
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400">CADE Token:</span>
+            <span className="font-bold text-amber-400">{cadeBalance} CADE</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400">Cade Points:</span>
+            <span className="font-bold text-emerald-400">{cadePtBalance} CADE-PT</span>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setActiveTab('game')}
+            className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'game' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+          >
+            🎮 Play Game
+          </button>
+          <button 
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+          >
+            🦫 Capy Profile
+          </button>
+        </div>
+
+        {/* TAB: PROFILE */}
+        {activeTab === 'profile' && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-center">
+              <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-2">Your Vibe Status</p>
+              <p className="text-sm italic text-amber-300">"{vibeStatus}"</p>
+            </div>
+            
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 text-center">
+              <p className="text-xs text-slate-400 mb-1">Current Identity</p>
+              <p className="text-xl font-black text-indigo-400">{vibeCombo}</p>
+              {vibeText && <p className="text-sm mt-2 text-slate-300">"{vibeText}"</p>}
+            </div>
+
+            <div className="border-t border-slate-800 pt-5">
+              <p className="text-sm font-bold mb-3 text-slate-300">Update Your Identity (A-Z)</p>
+              <div className="flex gap-3 mb-3">
+                <div className="flex-1">
+                  <label className="text-[10px] uppercase text-slate-500 mb-1 block">Modifier (A-Z)</label>
+                  <select 
+                    value={inputMod} 
+                    onChange={(e) => setInputMod(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"
+                  >
+                    {MODIFIERS.map((word, i) => { const letter = String.fromCharCode(65 + i); return <option key={`mod-${letter}`} value={letter}>{letter} - {word}</option>; })}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] uppercase text-slate-500 mb-1 block">Subject (A-Z)</label>
+                  <select 
+                    value={inputSub} 
+                    onChange={(e) => setInputSub(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"
+                  >
+                    {SUBJECTS.map((word, i) => { const letter = String.fromCharCode(65 + i); return <option key={`sub-${letter}`} value={letter}>{letter} - {word}</option>; })}
+                  </select>
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="text-[10px] uppercase text-slate-500 mb-1 block">Custom Text (Max 30 chars)</label>
+                <input 
+                  type="text" 
+                  maxLength="30"
+                  value={inputCustomText}
+                  onChange={(e) => setInputCustomText(e.target.value)}
+                  placeholder="e.g. loves yuzu bath"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"
+                />
+              </div>
+              <button
+                onClick={handleSetVibe}
+                disabled={txPending}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg disabled:opacity-50 text-sm"
+              >
+                {txPending ? 'Updating...' : 'Set Identity On-Chain'}
+              </button>
+            </div>
+
+            {/* KEY MANAGEMENT & CROSS-DEVICE SYNC */}
+            <div className="border-t border-slate-800 pt-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-300">🔑 Secret Key & Device Sync</p>
+                  <p className="text-xs text-slate-400">
+                    {keySource === 'telegram_cloud' 
+                      ? '☁️ Automatically synced to your Telegram Cloud Storage' 
+                      : '📱 Stored in this device / browser'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Signer EOA & Private Key Display */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-xs pb-1.5 border-b border-slate-800/80">
+                  <span className="text-slate-400 font-medium">Signer (EOA):</span>
+                  <span className="font-mono text-[11px] text-indigo-300 select-all">
+                    {eoaAddress ? `${eoaAddress.slice(0, 6)}...${eoaAddress.slice(-4)}` : '-'}
                   </span>
-                  {smartWalletAddress && (
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-medium">Your Private Key:</span>
+                  <button 
+                    onClick={() => setShowKey(!showKey)}
+                    className="text-indigo-400 hover:text-indigo-300 transition text-[11px]"
+                  >
+                    {showKey ? '🙈 Hide' : '👁️ Show'}
+                  </button>
+                </div>
+                <p className="font-mono text-xs text-slate-300 break-all bg-slate-900/60 p-2 rounded border border-slate-800 select-all">
+                  {showKey && privateKey ? privateKey : (privateKey ? `${privateKey.slice(0, 10)}••••••••••••••••••••••••••••••••${privateKey.slice(-8)}` : '')}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCopyKey}
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold py-2 px-3 rounded-lg text-xs transition border border-amber-500/20"
+                  >
+                    📋 Copy Secret Key
+                  </button>
+                  <button
+                    onClick={() => setShowImportBox(!showImportBox)}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2 px-3 rounded-lg text-xs transition border border-slate-700"
+                  >
+                    {showImportBox ? 'Close Import' : '📥 Import Key'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Import Custom Key Box */}
+              {showImportBox && (
+                <div className="bg-slate-950 border border-indigo-500/30 rounded-xl p-3 flex flex-col gap-2 animate-in fade-in duration-150">
+                  <label className="text-xs text-indigo-300 font-semibold">Paste Your Private Key:</label>
+                  <input
+                    type="password"
+                    value={importInput}
+                    onChange={(e) => setImportInput(e.target.value)}
+                    placeholder="0x..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    onClick={handleImportKey}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-xs transition"
+                  >
+                    📥 Switch / Import Wallet
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={handleResetWallet}
+                className="text-[11px] text-rose-400/80 hover:text-rose-300 self-center mt-1 transition"
+              >
+                🔄 Reset / Generate Brand New Account
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: GAME */}
+        {activeTab === 'game' && (
+          <>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Round Status</p>
+                  <p className={`text-sm font-semibold flex items-center gap-1.5 mt-0.5 ${isRoundEnded ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    <span className={`w-2 h-2 rounded-full ${isRoundEnded ? 'bg-amber-400' : 'bg-emerald-400 animate-ping'}`}></span>
+                    {isRoundEnded ? 'Ended (Awaiting Resolve)' : 'In Progress'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Time Left</p>
+                  <p className="text-lg font-mono font-bold text-amber-400">{timeLeft}</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl text-center border border-slate-800/80 mb-5 relative overflow-hidden">
+                <div className="absolute -top-3 -right-3 text-4xl opacity-10">🦫</div>
+                <p className="text-xs text-slate-400 mb-1">Total Prize Pot (CADE-PT)</p>
+                <p className="text-3xl font-black text-emerald-400">
+                  {(playersList.length * 0.1).toFixed(2)} PT
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {playersList.length} {playersList.length === 1 ? 'Player' : 'Players'} in this round
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <label className="text-xs font-semibold text-slate-300">
+                  Guess (0 - 99) • Entry: 0.1 USDC • Cashback: 100 CADE
+                </label>
+
+                {Number(usdcBalance) < 0.1 && (
+                  <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-300 flex items-center justify-between gap-2">
+                    <span>⚠️ Need at least 0.1 USDC (Balance: {usdcBalance} USDC)</span>
                     <button
                       onClick={handleCopyAddress}
-                      className="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 px-2 py-1 rounded text-xs transition border border-indigo-500/30 cursor-pointer"
+                      className="bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition cursor-pointer"
                     >
-                      {copied ? '✓ Copied!' : '📋 Copy'}
+                      {copied ? '✓ Copied' : '📋 Copy Smart Wallet'}
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={guessInput}
+                    onChange={(e) => setGuessInput(e.target.value)}
+                    disabled={txPending || Number(usdcBalance) < 0.1}
+                    placeholder="e.g. 42"
+                    className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg font-bold text-white focus:outline-none focus:border-indigo-500 transition disabled:opacity-50"
+                  />
+                  {hasAllowance ? (
+                    <button
+                      onClick={handleSubmitGuess}
+                      disabled={!guessInput || txPending || Number(usdcBalance) < 0.1}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {txPending ? 'Sending...' : "I'm feeling lucky"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleApprove}
+                      disabled={txPending}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-indigo-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {txPending ? 'Approving...' : "Approve USDC"}
                     </button>
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">USDC Balance:</span>
-                <span className={`font-bold ${Number(usdcBalance) < 0.1 ? 'text-rose-400' : 'text-blue-400'}`}>
-                  {usdcBalance} USDC {Number(usdcBalance) < 0.1 && <span className="text-[10px] font-medium text-rose-300 ml-1 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Min: 0.1</span>}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">CADE Token:</span>
-                <span className="font-bold text-amber-400">{cadeBalance} CADE</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Cade Points:</span>
-                <span className="font-bold text-emerald-400">{cadePtBalance} CADE-PT</span>
-              </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setActiveTab('game')}
-                className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'game' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-              >
-                🎮 Play Game
-              </button>
-              <button 
-                onClick={() => setActiveTab('profile')}
-                className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-              >
-                🦫 Capy Profile
-              </button>
-            </div>
-
-            {/* TAB: PROFILE */}
-            {activeTab === 'profile' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
-                <div className="text-center">
-                  <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-2">Your Vibe Status</p>
-                  <p className="text-sm italic text-amber-300">"{vibeStatus}"</p>
-                </div>
-                
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 text-center">
-                  <p className="text-xs text-slate-400 mb-1">Current Identity</p>
-                  <p className="text-xl font-black text-indigo-400">{vibeCombo}</p>
-                  {vibeText && <p className="text-sm mt-2 text-slate-300">"{vibeText}"</p>}
-                </div>
-
-                <div className="border-t border-slate-800 pt-5">
-                  <p className="text-sm font-bold mb-3 text-slate-300">Update Your Identity (A-Z)</p>
-                  <div className="flex gap-3 mb-3">
-                    <div className="flex-1">
-                      <label className="text-[10px] uppercase text-slate-500 mb-1 block">Modifier (A-Z)</label>
-                      <select 
-                        value={inputMod} 
-                        onChange={(e) => setInputMod(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"
-                      >
-                        {MODIFIERS.map((word, i) => { const letter = String.fromCharCode(65 + i); return <option key={`mod-${letter}`} value={letter}>{letter} - {word}</option>; })}
-                      </select>
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-[10px] uppercase text-slate-500 mb-1 block">Subject (A-Z)</label>
-                      <select 
-                        value={inputSub} 
-                        onChange={(e) => setInputSub(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"
-                      >
-                        {SUBJECTS.map((word, i) => { const letter = String.fromCharCode(65 + i); return <option key={`sub-${letter}`} value={letter}>{letter} - {word}</option>; })}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <label className="text-[10px] uppercase text-slate-500 mb-1 block">Custom Text (Max 30 chars)</label>
-                    <input 
-                      type="text" 
-                      maxLength="30"
-                      value={inputCustomText}
-                      onChange={(e) => setInputCustomText(e.target.value)}
-                      placeholder="e.g. loves yuzu bath"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSetVibe}
-                    disabled={txPending}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg disabled:opacity-50 text-sm"
-                  >
-                    {txPending ? 'Updating...' : 'Set Identity On-Chain'}
-                  </button>
+            {isRoundEnded && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-center text-center">
+                <div>
+                  <p className="text-sm font-semibold text-emerald-400 mb-1">Time's Up for this Round! ⏳</p>
+                  <p className="text-xs text-emerald-200/70">The next person to play will automatically resolve the winner and start a fresh pot!</p>
                 </div>
               </div>
             )}
 
-            {/* TAB: GAME */}
-            {activeTab === 'game' && (
-              <>
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-                    <div>
-                      <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Round Status</p>
-                      <p className={`text-sm font-semibold flex items-center gap-1.5 mt-0.5 ${isRoundEnded ? 'text-amber-400' : 'text-emerald-400'}`}>
-                        <span className={`w-2 h-2 rounded-full ${isRoundEnded ? 'bg-amber-400' : 'bg-emerald-400 animate-ping'}`}></span>
-                        {isRoundEnded ? 'Ended (Awaiting Resolve)' : 'In Progress'}
-                      </p>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-slate-300 mb-3 flex items-center justify-between">
+                <span>Active Players</span>
+                <span className="text-xs font-normal text-slate-500">{playersList.length} Players</span>
+              </h3>
+              {loading ? (
+                <p className="text-xs text-slate-500 text-center py-4">Reading blockchain data...</p>
+              ) : playersList.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">No players yet. Be the first!</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {playersList.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-slate-950 p-2.5 rounded-lg text-xs border border-slate-800/50">
+                      <span className="font-mono text-slate-400">
+                        {item.player.slice(0, 6)}...{item.player.slice(-4)}
+                      </span>
+                      <span className="font-bold text-indigo-300">Guess: {item.guess}</span>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Time Left</p>
-                      <p className="text-lg font-mono font-bold text-amber-400">{timeLeft}</p>
-                    </div>
-                  </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-                  <div className="bg-slate-950 p-4 rounded-xl text-center border border-slate-800/80 mb-5 relative overflow-hidden">
-                    <div className="absolute -top-3 -right-3 text-4xl opacity-10">🦫</div>
-                    <p className="text-xs text-slate-400 mb-1">Total Prize Pot (CADE-PT)</p>
-                    <p className="text-3xl font-black text-emerald-400">
-                      {(playersList.length * 0.1).toFixed(2)} PT
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      {playersList.length} {playersList.length === 1 ? 'Player' : 'Players'} in this round
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-3">
-                    <label className="text-xs font-semibold text-slate-300">
-                      Guess (0 - 99) • Entry: 0.1 USDC • Cashback: 100 CADE
-                    </label>
-
-                    {Number(usdcBalance) < 0.1 && (
-                      <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-300 flex items-center justify-between gap-2">
-                        <span>⚠️ Need at least 0.1 USDC (Balance: {usdcBalance} USDC)</span>
-                        <button
-                          onClick={handleCopyAddress}
-                          className="bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition cursor-pointer"
-                        >
-                          {copied ? '✓ Copied' : '📋 Copy Smart Wallet'}
-                        </button>
+            {/* Match History */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-8">
+              <h3 className="text-sm font-bold text-slate-300 mb-3 flex items-center justify-between">
+                <span>Recent Winners</span>
+                <span className="text-xs font-normal text-slate-500">History</span>
+              </h3>
+              {loading ? (
+                <p className="text-xs text-slate-500 text-center py-4">Fetching history logs...</p>
+              ) : historyList.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">No rounds have been resolved yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {historyList.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg text-xs border border-slate-800/50">
+                      <div className="flex flex-col">
+                        <span className="font-mono font-bold text-emerald-400 mb-0.5">
+                          {item.winners.length > 1 
+                            ? <span className="text-amber-400">{item.winners.length} Winners (Tie!)</span>
+                            : `Winner: ${item.winners[0].slice(0, 6)}...${item.winners[0].slice(-4)}`
+                          }
+                        </span>
+                        <span className="text-slate-400">
+                          Winning #: <span className="font-bold text-white">{item.winningNumber}</span>
+                        </span>
                       </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        max="99"
-                        value={guessInput}
-                        onChange={(e) => setGuessInput(e.target.value)}
-                        disabled={txPending || Number(usdcBalance) < 0.1}
-                        placeholder="e.g. 42"
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg font-bold text-white focus:outline-none focus:border-indigo-500 transition disabled:opacity-50"
-                      />
-                      {hasAllowance ? (
-                        <button
-                          onClick={handleSubmitGuess}
-                          disabled={!guessInput || txPending || !wallets[0] || Number(usdcBalance) < 0.1}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {txPending ? 'Sending...' : "I'm feeling lucky"}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={handleApprove}
-                          disabled={txPending || !wallets[0]}
-                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-indigo-600/20 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {txPending ? 'Approving...' : "Approve USDC"}
-                        </button>
-                      )}
+                      <div className="text-right">
+                        <span className="text-slate-400 block mb-0.5">Prize</span>
+                        <span className="font-bold text-emerald-300">+{item.prize} CADE-PT</span>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-
-                {isRoundEnded && (
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-center text-center">
-                    <div>
-                      <p className="text-sm font-semibold text-emerald-400 mb-1">Time's Up for this Round! ⏳</p>
-                      <p className="text-xs text-emerald-200/70">The next person to play will automatically resolve the winner and start a fresh pot!</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                  <h3 className="text-sm font-bold text-slate-300 mb-3 flex items-center justify-between">
-                    <span>Active Players</span>
-                    <span className="text-xs font-normal text-slate-500">{playersList.length} Players</span>
-                  </h3>
-                  {loading ? (
-                    <p className="text-xs text-slate-500 text-center py-4">Reading blockchain data...</p>
-                  ) : playersList.length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-4">No players yet. Be the first!</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {playersList.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between bg-slate-950 p-2.5 rounded-lg text-xs border border-slate-800/50">
-                          <span className="font-mono text-slate-400">
-                            {item.player.slice(0, 6)}...{item.player.slice(-4)}
-                          </span>
-                          <span className="font-bold text-indigo-300">Guess: {item.guess}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Match History */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-8">
-                  <h3 className="text-sm font-bold text-slate-300 mb-3 flex items-center justify-between">
-                    <span>Recent Winners</span>
-                    <span className="text-xs font-normal text-slate-500">History</span>
-                  </h3>
-                  {loading ? (
-                    <p className="text-xs text-slate-500 text-center py-4">Fetching history logs...</p>
-                  ) : historyList.length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-4">No rounds have been resolved yet.</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {historyList.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between bg-slate-950 p-3 rounded-lg text-xs border border-slate-800/50">
-                          <div className="flex flex-col">
-                            <span className="font-mono font-bold text-emerald-400 mb-0.5">
-                              {item.winners.length > 1 
-                                ? <span className="text-amber-400">{item.winners.length} Winners (Tie!)</span>
-                                : `Winner: ${item.winners[0].slice(0, 6)}...${item.winners[0].slice(-4)}`
-                              }
-                            </span>
-                            <span className="text-slate-400">
-                              Winning #: <span className="font-bold text-white">{item.winningNumber}</span>
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-slate-400 block mb-0.5">Prize</span>
-                            <span className="font-bold text-emerald-300">+{item.prize} CADE-PT</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
+              )}
+            </div>
           </>
         )}
       </main>
