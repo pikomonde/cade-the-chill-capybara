@@ -33,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         // loginMethods: ['email', 'wallet', 'google', 'telegram'],
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
+          showWalletUIs: false,
         },
         appearance: {
           theme: 'dark',
