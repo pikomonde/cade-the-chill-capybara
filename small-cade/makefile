@@ -84,8 +84,7 @@ build-and-deploy-contract-mainnet:
 activate-dex-mainnet:
 	. contracts/.env && cd frontend && . ./.env && \
 	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setDex(address)" $$VITE_UNISWAP_ROUTER_MAINNET --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY && sleep 3 && \
-	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setPercentages(uint256,uint256,uint256)" 40 60 0 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY && sleep 3 && \
-	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setPoolFees(uint24,uint24)" 500 0 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setPercentages(uint256,uint256,uint256)" 40 60 0 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
 activate-dex-swap-cade-mainnet:
 	. contracts/.env && cd frontend && . ./.env && \
 	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setPercentages(uint256,uint256,uint256)" 40 40 20 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
@@ -124,3 +123,15 @@ withdraw-paymaster-deposit-mainnet:
 	cast send $$VITE_PAYMASTER_ADDRESS_MAINNET "withdrawTo(address,uint256)" $$DEPLOYER "$$DEPOSIT" --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
 # deploy-treasury-mainnet:
 # 	bash scripts/deploy-treasury-mainnet.sh
+deposit-paymaster-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	echo "Depositing 0.0001 ETH to EntryPoint for Paymaster ($$VITE_PAYMASTER_ADDRESS_MAINNET)..." && \
+	cast send $$VITE_ENTRYPOINT_ADDRESS_MAINNET "depositTo(address)" $$VITE_PAYMASTER_ADDRESS_MAINNET --value 0.0001ether --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+# fund-treasury-cade-mainnet:
+# 	. contracts/.env && cd frontend && . ./.env && \
+# 	echo "Transferring 1 Trillion CADE to Treasury ($$VITE_TREASURY_ADDRESS_MAINNET)..." && \
+# 	cast send $$VITE_CADE_TOKEN_ADDRESS_MAINNET "transfer(address,uint256)" $$VITE_TREASURY_ADDRESS_MAINNET 1000000000000000000000000000000 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+# fund-treasury-usdc-mainnet:
+# 	. contracts/.env && cd frontend && . ./.env && \
+# 	echo "Transferring 0.5 USDC to Treasury ($$VITE_TREASURY_ADDRESS_MAINNET) for Uniswap replenish testing..." && \
+# 	cast send $$VITE_USDC_ADDRESS_MAINNET "transfer(address,uint256)" $$VITE_TREASURY_ADDRESS_MAINNET 500000 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
