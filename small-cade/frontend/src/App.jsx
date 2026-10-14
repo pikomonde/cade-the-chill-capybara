@@ -58,6 +58,12 @@ const publicClient = createPublicClient({
   transport: isAnvil ? http('http://127.0.0.1:8545') : http(),
 });
 
+const formatBalance = (val) => {
+  const num = typeof val === 'number' ? val : Number(String(val || 0).replace(/,/g, ''));
+  if (isNaN(num)) return '0.00';
+  return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 function App() {
   // Native Zero-Privy Wallet State
   const [privateKey, setPrivateKey] = useState(null);
@@ -653,16 +659,16 @@ function App() {
           <div className="flex items-center justify-between">
             <span className="text-slate-400">USDC Balance:</span>
             <span className={`font-bold ${Number(usdcBalance) < 0.1 ? 'text-rose-400' : 'text-blue-400'}`}>
-              {usdcBalance} USDC {Number(usdcBalance) < 0.1 && <span className="text-[10px] font-medium text-rose-300 ml-1 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Min: 0.1</span>}
+              {formatBalance(usdcBalance)} USDC {Number(usdcBalance) < 0.1 && <span className="text-[10px] font-medium text-rose-300 ml-1 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Min: 0.1</span>}
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-slate-400">CADE Token:</span>
-            <span className="font-bold text-amber-400">{cadeBalance} CADE</span>
+            <span className="font-bold text-amber-400">{formatBalance(cadeBalance)} CADE</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-slate-400">Cade Points:</span>
-            <span className="font-bold text-emerald-400">{cadePtBalance} CADE-PT</span>
+            <span className="font-bold text-emerald-400">{formatBalance(cadePtBalance)} CADE-PT</span>
           </div>
         </div>
 
@@ -733,7 +739,7 @@ function App() {
               </div>
               {Number(usdcBalance) < 0.01 && (
                 <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-2.5 text-xs text-rose-300 mb-3 flex items-center justify-between gap-2">
-                  <span>⚠️ Need at least 0.01 USDC to update identity (Balance: {usdcBalance} USDC)</span>
+                  <span>⚠️ Need at least 0.01 USDC to update identity (Balance: {formatBalance(usdcBalance)} USDC)</span>
                 </div>
               )}
               <button
@@ -904,7 +910,7 @@ function App() {
 
                 {Number(usdcBalance) < 0.1 && (
                   <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-300 flex items-center justify-between gap-2">
-                    <span>⚠️ Need at least 0.1 USDC (Balance: {usdcBalance} USDC)</span>
+                    <span>⚠️ Need at least 0.1 USDC (Balance: {formatBalance(usdcBalance)} USDC)</span>
                     <button
                       onClick={handleCopyAddress}
                       className="bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition cursor-pointer"
