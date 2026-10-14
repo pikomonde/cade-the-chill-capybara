@@ -38,8 +38,6 @@ jobs:
         run: |
           if [ -n "${{ secrets.FRONTEND_ENV }}" ]; then
             echo "${{ secrets.FRONTEND_ENV }}" > .env
-          elif [ -f "env.public" ]; then
-            cp env.public .env
           fi
 
       - name: Install Dependencies
