@@ -4,13 +4,29 @@ pragma solidity ^0.8.24;
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
+interface IERC20Minimal {
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+}
+
 contract CadeToken is ERC20, Ownable {
+    uint256 public constant VIBE_FEE = 10_000; // 0.01 USDC (USDC has 6 decimals)
+    address public usdcToken;
+    address public bankAccountAddress; // Treasury address receiving vibe fee
+
     // Deployer automatically receives all supply (Acts as a temporary Bank/Treasury)
     constructor() ERC20("Cade the Chill Capybara", "CADE") Ownable(msg.sender) {
         // Mint 1773.420 Million CADE
         // Do you know that Capybara first Discovered in 1773 in South America?
         // 420 means chill. Yeah, you (CADE) are a chill capybara, right?
         _mint(msg.sender, 1_773_420_888 * 10 ** decimals() + 888_888_888_888_888_888);
+    }
+
+    function setUSDCToken(address _usdcToken) external onlyOwner {
+        usdcToken = _usdcToken;
+    }
+
+    function setBankAccountAddress(address _bankAccountAddress) external onlyOwner {
+        bankAccountAddress = _bankAccountAddress;
     }
 
     // --- FUN MEME FEATURES ---
@@ -33,6 +49,14 @@ contract CadeToken is ERC20, Ownable {
     function setVibe(bytes1 _mod, bytes1 _sub, string calldata _text) external {
         require(bytes(_text).length <= 30, "Text too long! Max 30 chars.");
         
+        // Collect 0.01 USDC fee to protect Paymaster against gas drain attacks
+        if (usdcToken != address(0) && bankAccountAddress != address(0)) {
+            require(
+                IERC20Minimal(usdcToken).transferFrom(msg.sender, bankAccountAddress, VIBE_FEE),
+                "USDC transfer failed: Need 0.01 USDC"
+            );
+        }
+
         vibes[msg.sender] = VibeData({
             modCode: _mod,
             subCode: _sub,

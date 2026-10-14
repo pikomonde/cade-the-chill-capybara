@@ -52,7 +52,7 @@ activate-dex-swap-cade-sepolia:
 	cast send $$VITE_TREASURY_ADDRESS_SEPOLIA "setPercentages(uint256,uint256,uint256)" 40 40 20 --rpc-url https://sepolia.base.org --private-key $$PRIVATE_KEY
 
 # ========== mainnet ==========
-# metamask deployer wallet: 0x684919C697394d11e444D86B110B21545Ed1B06D
+# metamask deployer wallet: 0x4e2A196347BEFdE6B0b10760a764A8Ce5ff6478f
 # privy tester wallet: 0xb68Cc176E710E18C6a0BcdC8Ed68A1b5cD12B0e5
 # privy tester smart wallet: 0xb77fBF1e7EA84Be0EfaeF85AaB7B8d0895517993
 check-balance-eth-on-eth-mainnet:
@@ -65,14 +65,20 @@ check-balance-usdc-on-base-mainnet:
 check-balance-cade-token-on-base-mainnet:
 	cd frontend && . ./.env && \
 	cast call $$VITE_CADE_TOKEN_ADDRESS_MAINNET "balanceOf(address)(uint256)" $$USER_WALLET_ADDRESS --rpc-url https://mainnet.base.org
-# transfer-usdc-on-base-mainnet:
-# 	cd frontend && . ./.env && \
-# 	cast send $$VITE_USDC_ADDRESS_MAINNET "transfer(address,uint256)(bool)" $$USER_RECEIVER_WALLET_ADDRESS $$AMOUNT --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY_SENDER
-# transfer-cade-token-on-base-mainnet:
-# 	cd frontend && . ./.env && \
-# 	cast send $$VITE_CADE_TOKEN_ADDRESS_MAINNET "transfer(address,uint256)(bool)" $$USER_RECEIVER_WALLET_ADDRESS $$AMOUNT --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY_SENDER
+transfer-usdc-on-base-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_USDC_ADDRESS_MAINNET "transfer(address,uint256)(bool)" $$USER_RECEIVER_WALLET_ADDRESS $$AMOUNT --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+transfer-cade-token-on-base-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_CADE_TOKEN_ADDRESS_MAINNET "transfer(address,uint256)(bool)" $$USER_RECEIVER_WALLET_ADDRESS $$AMOUNT --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
 # bridge-eth-from-eth-mainnet-to-base-mainnet:
 # 	cast send 0xfd0Bf71F60660E2f608ed56e1659C450eB113120 "depositETH(uint32,bytes)" 200000 "0x" --value 0.001ether --rpc-url https://ethereum-rpc.publicnode.com --private-key $$PRIVATE_KEY
+withdraw-usdc-from-treasury:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "emergencyWithdrawToken(address,uint256)" $$VITE_USDC_ADDRESS_MAINNET $$AMOUNT --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+withdraw-cade-token-from-treasury:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "emergencyWithdrawToken(address,uint256)" $$VITE_CADE_TOKEN_ADDRESS_MAINNET $$AMOUNT --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
 build-and-deploy-contract-mainnet:
 	bash scripts/build-and-deploy-contract-mainnet.sh
 activate-dex-mainnet:
@@ -83,3 +89,38 @@ activate-dex-mainnet:
 activate-dex-swap-cade-mainnet:
 	. contracts/.env && cd frontend && . ./.env && \
 	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setPercentages(uint256,uint256,uint256)" 40 40 20 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+check-treasury-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	echo "DEX Router:" && cast call $$VITE_TREASURY_ADDRESS_MAINNET "dexRouterAddress()(address)" --rpc-url https://mainnet.base.org && \
+	echo "Paymaster in Treasury:" && cast call $$VITE_TREASURY_ADDRESS_MAINNET "paymasterAddress()(address)" --rpc-url https://mainnet.base.org && \
+	echo "Need Replenish Now?:" && cast call $$VITE_TREASURY_ADDRESS_MAINNET "isNeedReplenishGasNow()(bool)" --rpc-url https://mainnet.base.org && \
+	echo "Replenish Interval (secs):" && cast call $$VITE_TREASURY_ADDRESS_MAINNET "replenishGasInterval()(uint256)" --rpc-url https://mainnet.base.org && \
+	echo "Replenish Reward (wei):" && cast call $$VITE_TREASURY_ADDRESS_MAINNET "getReplenishReward()(uint256)" --rpc-url https://mainnet.base.org && \
+	echo "ETH Balance in EntryPoint:" && cast call $$VITE_ENTRYPOINT_ADDRESS_MAINNET "balanceOf(address)(uint256)" $$VITE_PAYMASTER_ADDRESS_MAINNET --rpc-url https://mainnet.base.org && \
+	echo "USDC Balance in Treasury:" && cast call $$VITE_USDC_ADDRESS_MAINNET "balanceOf(address)(uint256)" $$VITE_TREASURY_ADDRESS_MAINNET --rpc-url https://mainnet.base.org
+set-replenish-interval-1min-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setReplenishGasInterval(uint256)" 1 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+set-replenish-interval-1day-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "setReplenishGasInterval(uint256)" 1440 --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+replenish-gas-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	cast send $$VITE_TREASURY_ADDRESS_MAINNET "replenishGas()" --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+check-paymaster-deposit-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	echo "Paymaster ETH Deposit in EntryPoint:" && \
+	cast call $$VITE_ENTRYPOINT_ADDRESS_MAINNET "balanceOf(address)(uint256)" $$VITE_PAYMASTER_ADDRESS_MAINNET --rpc-url https://mainnet.base.org
+check-deployer-usdc-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	DEPLOYER=$$(cast wallet address --private-key $$PRIVATE_KEY) && \
+	echo "Deployer ($$DEPLOYER) USDC Balance:" && \
+	cast call $$VITE_USDC_ADDRESS_MAINNET "balanceOf(address)(uint256)" $$DEPLOYER --rpc-url https://mainnet.base.org
+withdraw-paymaster-deposit-mainnet:
+	. contracts/.env && cd frontend && . ./.env && \
+	DEPLOYER=$$(cast wallet address --private-key $$PRIVATE_KEY) && \
+	DEPOSIT=$$(cast call $$VITE_PAYMASTER_ADDRESS_MAINNET "getDeposit()(uint256)" --rpc-url https://mainnet.base.org | awk '{print $$1}') && \
+	echo "Withdrawing $$DEPOSIT wei from EntryPoint to Deployer ($$DEPLOYER)..." && \
+	cast send $$VITE_PAYMASTER_ADDRESS_MAINNET "withdrawTo(address,uint256)" $$DEPLOYER "$$DEPOSIT" --rpc-url https://mainnet.base.org --private-key $$PRIVATE_KEY
+# deploy-treasury-mainnet:
+# 	bash scripts/deploy-treasury-mainnet.sh

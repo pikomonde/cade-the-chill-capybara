@@ -5,6 +5,7 @@ import { defineChain } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 import gameArtifact from './GameGuessNumberABI.json';
 import cadeTokenArtifact from './CadeTokenABI.json';
+import treasuryArtifact from './TreasuryABI.json';
 import { getSmartWalletClient } from './smartWalletClient.js';
 import { getOrCreatePrivateKey, saveCustomPrivateKey, clearStoredPrivateKey } from './walletStorage.js';
 import sdk from '@farcaster/frame-sdk';
@@ -44,6 +45,7 @@ const USDC_ADDRESS = getEnvVar('USDC_ADDRESS');
 const CADE_TOKEN_ADDRESS = getEnvVar('CADE_TOKEN_ADDRESS');
 const CADE_POINTS_ADDRESS = getEnvVar('CADE_POINTS_ADDRESS');
 const PAYMASTER_ADDRESS = getEnvVar('PAYMASTER_ADDRESS');
+const TREASURY_ADDRESS = getEnvVar('TREASURY_ADDRESS');
 
 const ERC20_ABI = parseAbi([
   'function allowance(address owner, address spender) view returns (uint256)',
@@ -93,6 +95,11 @@ function App() {
   const [inputMod, setInputMod] = useState('C');
   const [inputSub, setInputSub] = useState('C');
   const [inputCustomText, setInputCustomText] = useState('');
+
+  // Treasury & Gas Replenish State
+  const [isNeedReplenish, setIsNeedReplenish] = useState(false);
+  const [replenishReward, setReplenishReward] = useState('0');
+  const [playCashback, setPlayCashback] = useState('...');
 
   // 1. Initialize Farcaster Frame v2
   useEffect(() => {
@@ -357,10 +364,41 @@ function App() {
     return () => clearInterval(interval);
   }, [smartWalletAddress]);
 
+  const checkTreasuryStatus = async () => {
+    if (!TREASURY_ADDRESS || TREASURY_ADDRESS === '') return;
+    try {
+      const need = await publicClient.readContract({
+        address: TREASURY_ADDRESS,
+        abi: treasuryArtifact.abi,
+        functionName: 'isNeedReplenishGasNow',
+      });
+      setIsNeedReplenish(Boolean(need));
+
+      const reward = await publicClient.readContract({
+        address: TREASURY_ADDRESS,
+        abi: treasuryArtifact.abi,
+        functionName: 'getReplenishReward',
+      });
+      const rewardNum = Number(BigInt(reward) / 10n**16n) / 100;
+      setReplenishReward(rewardNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+      const cb = await publicClient.readContract({
+        address: TREASURY_ADDRESS,
+        abi: treasuryArtifact.abi,
+        functionName: 'getPlayCashback',
+      });
+      const cbNum = Number(BigInt(cb) / 10n**16n) / 100;
+      setPlayCashback(cbNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    } catch (e) {
+      console.debug("Failed checking treasury status:", e);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       await fetchContractData();
       await fetchTokenBalances();
+      await checkTreasuryStatus();
     };
     loadData();
 
@@ -466,6 +504,11 @@ function App() {
       return;
     }
 
+    if (Number(usdcBalance) < 0.01) {
+      toast.error(`Need at least 0.01 USDC to set identity on-chain! (Balance: ${usdcBalance} USDC)`);
+      return;
+    }
+
     if (!smartAccountClient) {
       toast.error("Smart Wallet not ready!");
       return;
@@ -474,7 +517,29 @@ function App() {
     try {
       setTxPending(true);
 
-      // Convert chars to bytes1 (e.g. "C" -> 0x43)
+      // 1. Auto-approve CadeToken to pull 0.01 USDC fee if allowance not yet granted
+      if (USDC_ADDRESS && CADE_TOKEN_ADDRESS) {
+        const allowance = await publicClient.readContract({
+          address: USDC_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: 'allowance',
+          args: [smartWalletAddress, CADE_TOKEN_ADDRESS],
+        });
+        if (allowance < BigInt(10000)) {
+          toast.loading("Approving 0.01 USDC for identity...", { id: 'vibe-approve' });
+          const appHash = await smartAccountClient.writeContract({
+            address: USDC_ADDRESS,
+            abi: ERC20_ABI,
+            functionName: 'approve',
+            args: [CADE_TOKEN_ADDRESS, BigInt(1000000000)],
+          });
+          console.log("Approve Vibe Tx Hash:", appHash);
+          await publicClient.waitForTransactionReceipt({ hash: appHash });
+          toast.dismiss('vibe-approve');
+        }
+      }
+
+      // 2. Convert chars to bytes1 (e.g. "C" -> 0x43)
       const modHex = '0x' + inputMod.charCodeAt(0).toString(16).padStart(2, '0');
       const subHex = '0x' + inputSub.charCodeAt(0).toString(16).padStart(2, '0');
       
@@ -486,12 +551,44 @@ function App() {
       });
 
       console.log("Tx Hash:", hash);
-      toast.success(`Successfully updated Vibe! Tx Hash: ${hash.slice(0, 10)}...`);
+      toast.success(`Identity updated on-chain (0.01 USDC)! Tx Hash: ${hash.slice(0, 10)}...`);
       setTimeout(() => fetchTokenBalances(), 3000);
     } catch (err) {
       console.error("Failed to set vibe:", err);
       const errorKey = err.cause?.name || err.name;
       toast.error(`Failed: ${ERROR_MESSAGES[errorKey] || err.shortMessage || err.message}`);
+    } finally {
+      setTxPending(false);
+    }
+  };
+
+  const handleReplenishGas = async () => {
+    if (!smartAccountClient) {
+      toast.error("Smart Wallet not ready!");
+      return;
+    }
+    if (!TREASURY_ADDRESS) {
+      toast.error("Treasury address not configured!");
+      return;
+    }
+    try {
+      setTxPending(true);
+      const hash = await smartAccountClient.writeContract({
+        address: TREASURY_ADDRESS,
+        abi: treasuryArtifact.abi,
+        functionName: 'replenishGas',
+      });
+      console.log("Replenish Gas Hash:", hash);
+      toast.success(`Gas Refueled! Claimed +${replenishReward} CADE reward. Tx: ${hash.slice(0, 10)}...`);
+      setTimeout(() => {
+        fetchContractData();
+        fetchTokenBalances();
+        checkTreasuryStatus();
+      }, 3000);
+    } catch (err) {
+      console.error("Failed to replenish gas:", err);
+      const errorKey = err.cause?.name || err.name;
+      toast.error(`Replenish failed: ${ERROR_MESSAGES[errorKey] || err.shortMessage || err.message}`);
     } finally {
       setTxPending(false);
     }
@@ -634,12 +731,17 @@ function App() {
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none"
                 />
               </div>
+              {Number(usdcBalance) < 0.01 && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-2.5 text-xs text-rose-300 mb-3 flex items-center justify-between gap-2">
+                  <span>⚠️ Need at least 0.01 USDC to update identity (Balance: {usdcBalance} USDC)</span>
+                </div>
+              )}
               <button
                 onClick={handleSetVibe}
-                disabled={txPending}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg disabled:opacity-50 text-sm"
+                disabled={txPending || Number(usdcBalance) < 0.01}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg disabled:opacity-50 text-sm cursor-pointer disabled:cursor-not-allowed"
               >
-                {txPending ? 'Updating...' : 'Set Identity On-Chain'}
+                {txPending ? 'Updating...' : 'Set Identity On-Chain (0.01 USDC)'}
               </button>
             </div>
 
@@ -712,6 +814,29 @@ function App() {
                 </div>
               )}
 
+              {/* Treasury & Paymaster Gas Status */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col gap-2 mt-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-medium">⛽ Treasury Gas Status:</span>
+                  <span className={`font-semibold ${isNeedReplenish ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {isNeedReplenish ? '⚡ Refuel Needed!' : '🟢 Fully Fueled'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-medium">Refuel Bounty:</span>
+                  <span className="font-bold text-amber-300">+{replenishReward} CADE</span>
+                </div>
+                {isNeedReplenish && (
+                  <button
+                    onClick={handleReplenishGas}
+                    disabled={txPending}
+                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-lg text-xs transition mt-1"
+                  >
+                    {txPending ? 'Refueling...' : '⚡ Trigger Replenish Gas Now'}
+                  </button>
+                )}
+              </div>
+
               <button
                 onClick={handleResetWallet}
                 className="text-[11px] text-rose-400/80 hover:text-rose-300 self-center mt-1 transition"
@@ -740,6 +865,27 @@ function App() {
                 </div>
               </div>
 
+              {/* Replenish Gas Banner / Action */}
+              {isNeedReplenish && (
+                <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-3.5 mb-4 flex items-center justify-between gap-3 animate-pulse">
+                  <div>
+                    <p className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                      <span>⛽</span> Refuel Paymaster Gas!
+                    </p>
+                    <p className="text-[11px] text-amber-200/80 mt-0.5">
+                      Earn <strong className="text-white">+{replenishReward} CADE</strong> reward for refueling!
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleReplenishGas}
+                    disabled={txPending}
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                  >
+                    {txPending ? 'Refueling...' : '⚡ Refuel Gas'}
+                  </button>
+                </div>
+              )}
+
               <div className="bg-slate-950 p-4 rounded-xl text-center border border-slate-800/80 mb-5 relative overflow-hidden">
                 <div className="absolute -top-3 -right-3 text-4xl opacity-10">🦫</div>
                 <p className="text-xs text-slate-400 mb-1">Total Prize Pot (CADE-PT)</p>
@@ -753,7 +899,7 @@ function App() {
 
               <div className="flex flex-col gap-3">
                 <label className="text-xs font-semibold text-slate-300">
-                  Guess (0 - 99) • Entry: 0.1 USDC • Cashback: 100 CADE
+                  Guess (0 - 99) • Entry: 0.1 USDC • Cashback: {playCashback} CADE
                 </label>
 
                 {Number(usdcBalance) < 0.1 && (

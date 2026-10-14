@@ -8,14 +8,13 @@ interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
-// Basic interface for Uniswap V3 Router
+// Basic interface for Uniswap V3 SwapRouter02 on Base
 interface ISwapRouter {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
         uint24 fee;
         address recipient;
-        uint256 deadline;
         uint256 amountIn;
         uint256 amountOutMinimum;
         uint160 sqrtPriceLimitX96;
@@ -58,9 +57,9 @@ contract Treasury {
     uint256 public profitPercentage = 40;
     uint256 public buybackPercentage = 20;
     
-    // Pool Fee (Uniswap usually 0.3% -> 3000)
-    uint24 public poolFeeWeth = 3000;
-    uint24 public poolFeeCade = 3000; 
+    // Pool Fee (Uniswap usually 0.05% -> 500)
+    uint24 public poolFeeWeth = 500;
+    uint24 public poolFeeCade = 500; 
 
     event DexActivated(address router);
     event GasReplenished(address caller, uint256 usdcSwapped, uint256 ethDeposited);
@@ -150,7 +149,6 @@ contract Treasury {
                 tokenOut: wethToken,
                 fee: poolFeeWeth,
                 recipient: address(this), // Receive WETH to this treasury
-                deadline: block.timestamp,
                 amountIn: gasAmount,
                 amountOutMinimum: 0, // In production, add slippage protection here!
                 sqrtPriceLimitX96: 0
@@ -173,7 +171,6 @@ contract Treasury {
                 tokenOut: cadeToken,
                 fee: poolFeeCade,
                 recipient: address(this), // CADE stays in Treasury!
-                deadline: block.timestamp,
                 amountIn: buybackAmount,
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
@@ -228,6 +225,16 @@ contract Treasury {
         gasPercentage = _gas;
         profitPercentage = _profit;
         buybackPercentage = _buyback;
+    }
+
+    function setCadeToken(address _cadeToken) external onlyOwner {
+        require(_cadeToken != address(0), "Zero address");
+        cadeToken = _cadeToken;
+    }
+
+    function setPersonalWallet(address _newWallet) external onlyOwner {
+        require(_newWallet != address(0), "Zero address");
+        personalWallet = _newWallet;
     }
 
     // --- EMERGENCY ---
