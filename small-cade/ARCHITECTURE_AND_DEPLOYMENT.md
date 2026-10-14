@@ -25,11 +25,11 @@ The project operates across three environments. Due to infrastructure limitation
 
 The ecosystem's economy is designed to evolve in phases to protect developer capital and achieve self-sustainability through gameplay revenue.
 
-### Token Supply Allocation (Total: 1,773,420,888 CADE)
-- **1,000,000,000 CADE (~56.4%) ➔ Treasury Contract**: Dedicated purely as player cashback reserves for the game.
-- **500,000,000 CADE (~28.2%) ➔ Initial DEX Liquidity Pool Reserve**: Held by Deployer until Phase 3 pool activation (paired with $50k USDC).
-- **250,000,000 CADE (~14.1%) ➔ CEX Listings & Market Making (MM) Reserve**: Dedicated inventory for centralized exchange orderbook depth.
-- **23,420,888 CADE (~1.3%) ➔ Community Airdrops, Quests, & Team Reserve**: Miscellaneous buffer.
+### Token Supply Allocation (Total: 1,773,420,888,888 CADE - 1773.420 Billion)
+- **1,000,000,000,000 CADE (~56.4%, 1 Trillion CADE) ➔ Treasury Contract**: Dedicated purely as player cashback reserves for the game. (With `DENOMINATOR = 10,000,000`, player receives ~100,000 CADE per game, representing a 10% rebate).
+- **500,000,000,000 CADE (~28.2%, 500 Billion CADE) ➔ Initial DEX Liquidity Pool Reserve**: Held by Deployer until Phase 3 pool activation (paired with $50k USDC).
+- **250,000,000,000 CADE (~14.1%, 250 Billion CADE) ➔ CEX Listings & Market Making (MM) Reserve**: Dedicated inventory for centralized exchange orderbook depth.
+- **23,420,888,888 CADE (~1.3%, ~23.42 Billion CADE) ➔ Community Airdrops, Quests, & Team Reserve**: Miscellaneous buffer.
 
 ---
 
@@ -39,19 +39,19 @@ The ecosystem's economy is designed to evolve in phases to protect developer cap
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | Local / Initial Dev | N/A | None. |
 | **Phase 2** | Game Live (Zero-Risk Bootstrap) | **40% Gas / 60% Profit / 0% Buyback** | **NO CADE POOL YET.** Players accumulate CADE cashback as on-chain prestige/vibe. Treasury collects 100% of game USDC entry fees. |
-| **Phase 3** | Full DEX Ecosystem | **40% Gas / 40% Profit / 20% Buyback** | **Uniswap V3 Pool Active** (500M CADE + $50k USDC). Treasury auto-buys CADE via `replenishGas()`. |
+| **Phase 3** | Full DEX Ecosystem | **40% Gas / 40% Profit / 20% Buyback** | **Uniswap V3 Pool Active** (500B CADE + $50k USDC). Treasury auto-buys CADE via `replenishGas()`. |
 
 ### 🚀 Phase 3 Activation Threshold ($150,000 USDC Milestone)
 To prevent personal capital loss ("boncos"), the initial DEX liquidity pool is **NOT** funded from personal savings. Instead, it is funded organically from gameplay revenue:
 
 1. **Revenue Accumulation in Phase 2**: The game runs with splits configured to `40% Gas, 60% Profit, 0% Buyback`.
 2. **The $150k Profit Target**: Developer profit accumulates until net profits reach **$150,000 USDC** in `personalWallet`.
-3. **Seeding the Pool**: Exactly **$50,000 USDC** (representing 1/3 of the 60% accumulated profit, or 20% of total revenue) is paired with the reserved **500,000,000 CADE** to deploy the primary Uniswap V3 Pool:
-   - **Initial Pair**: 500,000,000 CADE + $50,000 USDC.
-   - **Initial Price**: **$0.0001 per CADE** ($50,000 / 500,000,000).
-   - **Initial Market Cap (FDV)**: **~$177,342 USD**.
+3. **Seeding the Pool**: Exactly **$50,000 USDC** (representing 1/3 of the 60% accumulated profit, or 20% of total revenue) is paired with the reserved **500,000,000,000 CADE** to deploy the primary Uniswap V3 Pool:
+   - **Initial Pair**: 500,000,000,000 CADE + $50,000 USDC.
+   - **Initial Price**: **$0.0000001 per CADE** ($50,000 / 500,000,000,000).
+   - **Initial Market Cap (FDV)**: **~$177,342 USD** ($0.0000001 * 1.7734 Trillion).
    - **Total Pool TVL**: **$100,000 USD** ($50k USDC + $50k CADE).
-   - **Cashback Valuation**: 100 CADE cashback = **$0.01 USDC** (10% rebate on the 0.1 USDC entry fee).
+   - **Cashback Valuation**: 100,000 CADE cashback = **$0.01 USDC** (10% rebate on the 0.1 USDC entry fee).
 4. **Transition to 40/40/20**: Once the pool is live on Uniswap, call:
    ```bash
    cast send <TREASURY> "setPercentages(uint256,uint256,uint256)" 40 40 20

@@ -17,7 +17,7 @@ flowchart TD
     end
 
     subgraph CoreTokens["Phase A: Core Tokens (No Dependencies)"]
-        CADE["CadeToken (ERC-20)<br/>Supply: ~1.773B"]
+        CADE["CadeToken (ERC-20)<br/>Supply: ~1.773T"]
         CADEPT["CadePoints (Soulbound)<br/>Mints dynamically"]
     end
 
@@ -73,7 +73,7 @@ These contracts require no constructor arguments.
 Requires addresses from Phase A and network infrastructure.
 3. Deploy **`CustomWhitelistPaymaster.sol`** (Args: `EntryPoint`)
 4. Deploy **`Treasury.sol`** (Args: `USDC`, `CadeToken`, `WETH`, `EntryPoint`, `personalWallet`)
-5. Fund Treasury with **1,000,000,000 CADE**.
+5. Fund Treasury with **1,000,000,000,000 CADE (1 Trillion CADE)**.
 
 ### Phase C: Game Contract
 Requires tokens from Phase A.

@@ -15,10 +15,10 @@ contract CadeToken is ERC20, Ownable {
 
     // Deployer automatically receives all supply (Acts as a temporary Bank/Treasury)
     constructor() ERC20("Cade the Chill Capybara", "CADE") Ownable(msg.sender) {
-        // Mint 1773.420 Million CADE
+        // Mint 1773.420 Trillion CADE
         // Do you know that Capybara first Discovered in 1773 in South America?
         // 420 means chill. Yeah, you (CADE) are a chill capybara, right?
-        _mint(msg.sender, 1_773_420_888 * 10 ** decimals() + 888_888_888_888_888_888);
+        _mint(msg.sender, 1_773_420_888_888 * 10 ** decimals() + 888_888_888_888_888_888);
     }
 
     function setUSDCToken(address _usdcToken) external onlyOwner {
@@ -108,9 +108,9 @@ contract CadeToken is ERC20, Ownable {
         
         if (bal == 0) {
             return "No chill at all. You need a yuzu bath.";
-        } else if (bal < 10_000 * 10**decimals()) {
+        } else if (bal < 1_000_000 * 10**decimals()) {
             return "Baby Capybara just woke up.";
-        } else if (bal < 10_000_000 * 10**decimals()) {
+        } else if (bal < 100_000_000 * 10**decimals()) {
             return "Chilling in the hot springs.";
         } else {
             return "Maximum Zen Mode Achieved! Ultimate Capybara.";

@@ -141,6 +141,22 @@ cast send $TREASURY_ADDRESS "approveGame(address)" $GAME_ADDRESS \
   --rpc-url $BASE_MAINNET_RPC_URL \
   --private-key $PRIVATE_KEY
 
+echo "   Waiting 3s for RPC sync..."; sleep 3
+echo "   Configuring CadeToken USDC and Treasury addresses..."
+cast send $CADE_TOKEN "setUSDCToken(address)" $USDC_ADDRESS \
+  --rpc-url $BASE_MAINNET_RPC_URL \
+  --private-key $PRIVATE_KEY
+sleep 3
+cast send $CADE_TOKEN "setBankAccountAddress(address)" $TREASURY_ADDRESS \
+  --rpc-url $BASE_MAINNET_RPC_URL \
+  --private-key $PRIVATE_KEY
+
+echo "   Waiting 3s for RPC sync..."; sleep 3
+echo "   Transferring 1 Trillion CADE to Treasury reserves..."
+cast send $CADE_TOKEN "transfer(address,uint256)" $TREASURY_ADDRESS 1000000000000000000000000000 \
+  --rpc-url $BASE_MAINNET_RPC_URL \
+  --private-key $PRIVATE_KEY
+
 #================================ Update the .env file in the frontend directory ================================
 echo ""
 echo "📝 Updating frontend/.env automatically..."
